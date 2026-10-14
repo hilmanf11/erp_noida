@@ -1,0 +1,7 @@
+Process Code AUTO CUTTING CRIMPING is Duplicate
+Process Code PART FITTING is Duplicate
+Process Code MANUAL CRIMPING is Duplicate
+Process Code HF SEALER is Duplicate
+Process Code JOINT CRIMPING is Duplicate
+Process Code JOINT TAPING is Duplicate
+Process Code WIRE COLLECTION is Duplicate

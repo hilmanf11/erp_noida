@@ -1,0 +1,275 @@
+<table id="dg" class="easyui-datagrid" style="width:100%;" toolbar="#toolbar">
+    <thead>
+        <tr>
+            <th rowspan="2" field="ck" checkbox="true"></th>
+            <th rowspan="2" data-options="field:'process_main_name',width:150,halign:'center'">Main Process</th>
+            <th rowspan="2" data-options="field:'number',width:150,halign:'center'">Process Code</th>
+            <th rowspan="2" data-options="field:'name',width:200,halign:'center'">Proces Name</th>
+            <th rowspan="2" data-options="field:'efficiency',width:100,align:'center'"> Efficiency (%)</th>
+            <th rowspan="2" data-options="field:'station',width:120,align:'center'"> No / Work Station</th>
+            <th rowspan="2" data-options="field:'station_mp',width:120,align:'center'">MP / Work Station</th>
+            <th rowspan="2" data-options="field:'mp_actual',width:100,align:'center'"> Total MP</th>
+            <th rowspan="2" data-options="field:'flag',width:80,halign:'center'"> Index</th>
+            <th rowspan="2" data-options="field:'description',width:300,halign:'center'"> Remarks</th>
+            <th colspan="2" data-options="field:'',width:100,halign:'center'"> Created</th>
+            <th colspan="2" data-options="field:'',width:100,halign:'center'"> Updated</th>
+        </tr>
+        <tr>
+            <th data-options="field:'created_by',width:100,align:'center'"> By</th>
+            <th data-options="field:'created_date',width:150,align:'center'"> Date</th>
+            <th data-options="field:'updated_by',width:100,align:'center'"> By</th>
+            <th data-options="field:'updated_date',width:150,align:'center'"> Date</th>
+        </tr>
+    </thead>
+</table>
+
+<div id="toolbar" style="height: 35px;">
+    <?= $button ?>
+</div>
+
+<div id="dlg_insert" class="easyui-dialog" title="Add New" data-options="closed: true,modal:true" style="width: 500px; padding:10px; top: 20px;">
+    <form id="frm_insert" method="post" novalidate>
+        <fieldset style="width:100%; border:1px solid #d0d0d0; margin-bottom: 10px; border-radius:4px; float: left;">
+            <legend><b>Form Data</b></legend>
+            <div class="fitem">
+                <span style="width:35%; display:inline-block;">Main Process</span>
+                <input style="width:60%;" name="process_main_id" id="process_main_id" required="true" class="easyui-combobox">
+            </div>
+            <div class="fitem">
+                <span style="width:35%; display:inline-block;">Process Code</span>
+                <input style="width:30%;" name="number" id="number" required="true" class="easyui-textbox">
+            </div>
+            <div class="fitem">
+                <span style="width:35%; display:inline-block;">Process Name</span>
+                <input style="width:60%;" name="name" id="name" required="true" class="easyui-textbox">
+            </div>
+            <div class="fitem">
+                <span style="width:35%; display:inline-block;">Efficiency</span>
+                <input style="width:60%;" name="efficiency" id="efficiency" required="true" class="easyui-numberbox" data-options="buttonText:'%',prompt:'In Percentage'" precision="2">
+            </div>
+            <div class="fitem">
+                <span style="width:35%; display:inline-block;">No / Work Station</span>
+                <input style="width:60%;" name="station" id="station" required="true" class="easyui-numberbox">
+            </div>
+            <div class="fitem">
+                <span style="width:35%; display:inline-block;">MP / Work Station</span>
+                <input style="width:60%;" name="station_mp" id="station_mp" required="true" class="easyui-numberbox">
+            </div>
+            <div class="fitem">
+                <span style="width:35%; display:inline-block;">Total MP</span>
+                <input style="width:60%;" name="mp_actual" id="mp_actual" readonly class="easyui-numberbox">
+            </div>
+            <div class="fitem">
+                <span style="width:35%; display:inline-block;">Index</span>
+                <input style="width:60%;" name="flag" id="flag" required="true" class="easyui-numberbox">
+            </div>
+            <div class="fitem">
+                <span style="width:35%; display:inline-block;">Remarks</span>
+                <input style="width:60%; height: 50px;" name="description" id="description" class="easyui-textbox" multiline="true">
+            </div>
+        </fieldset>
+    </form>
+</div>
+
+<!-- PDF -->
+<iframe id="printout" src="<?= base_url('master/item_process_sub/print') ?>" style="width: 100%;" hidden></iframe>
+
+<script>
+    //Add Data
+    function add() {
+        $('#dlg_insert').dialog('open');
+        url_save = '<?= base_url('master/item_process_sub/create') ?>';
+        $('#frm_insert').form('clear');
+        $("#process_main_id").combobox('enable');
+        $("#number").textbox('enable');
+        $("#station_mp").numberbox('setValue', 0);
+        $("#station").numberbox('setValue', 0);
+    }
+
+    //Edit Data
+    function update() {
+        var row = $('#dg').datagrid('getSelected');
+        if (row) {
+            $('#dlg_insert').dialog('open');
+            $('#frm_insert').form('load', row);
+            url_save = '<?= base_url('master/item_process_sub/update') ?>?id=' + btoa(row.id);
+            $("#process_main_id").combobox('disable');
+            $("#number").textbox('disable');
+        } else {
+            toastr.warning("Please select one of the data in the table first!", "Information");
+        }
+    }
+
+    //Delete Data
+    function deleted() {
+        var rows = $('#dg').datagrid('getSelections');
+        if (rows.length > 0) {
+            Swal.fire({
+                title: 'Delete Data',
+                text: "Are you sure? You want to delete this data!",
+                icon: 'warning',
+                showCancelButton: true,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                confirmButtonText: 'Yes, delete it!'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'Please Wait...',
+                        showConfirmButton: false,
+                        allowOutsideClick: false,
+                        allowEscapeKey: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        },
+                    });
+
+                    requestDelete(rows.length, rows);
+                    function requestDelete(total, json, number = 1, value = 0) {
+                        if (value < 100) {
+                            var row = json[number-1];
+                            value = Math.floor((number / total) * 100);
+
+                            $.ajax({
+                                method: 'post',
+                                url: '<?= base_url('master/item_process_sub/delete') ?>',
+                                data: {
+                                    id: row.id
+                                },
+                                success: function(result) {
+                                    var result = eval('(' + result + ')');
+                                    requestDelete(total, json, number + 1, value);
+
+                                    if (number == total) {
+                                        $('#dg').datagrid('reload');
+                                        Swal.close();
+                                        Swal.fire(
+                                            'Delete Completed',
+                                            'Delete Data has been completed, You cannot restore data that has been deleted',
+                                            'success'
+                                        );
+                                    }
+                                },
+                                error: function(jqXHR, textStatus, errorThrown) {
+                                    toastr.error(jqXHR.statusText);
+                                },
+                            });
+                        }
+                    }
+                }
+            });
+        } else {
+            toastr.info("Please select one of the data in the table first");
+        }
+    }
+
+    function pdf() {
+        $("#printout").get(0).contentWindow.print();
+    }
+
+    function excel() {
+        window.location.assign('<?= base_url('master/item_process_sub/print/excel') ?>');
+    }
+
+    function reload() {
+        window.location.reload();
+    }
+
+    $(function() {
+        $('#dg').datagrid({
+            url: '<?= base_url('master/item_process_sub/datatables') ?>',
+            pagination: true,
+            clientPaging: false,
+            remoteFilter: true,
+            rownumbers: true,
+            fit: true,
+            pageList: [20, 50, 100, 500, 1000],
+            pageSize: 20,
+        }).datagrid('enableFilter');
+
+        //Save Data
+        $('#dlg_insert').dialog({
+            buttons: [{
+                text: 'Save',
+                iconCls: 'icon-ok',
+                handler: function() {
+                    $('#frm_insert').form('submit', {
+                        url: url_save,
+                        onSubmit: function() {
+                            if($(this).form('validate') === true){
+                                $('#dlg_insert').dialog('close');
+                                
+                                Swal.fire({
+                                    title: 'Please Wait...',
+                                    showConfirmButton: false,
+                                    allowOutsideClick: false,
+                                    allowEscapeKey: false,
+                                    didOpen: () => {
+                                        Swal.showLoading();
+                                    },
+                                });
+                            }else{
+                                return $(this).form('validate');
+                            }
+                        },
+                        success: function(result) {
+                            var result = eval('(' + result + ')');
+
+                            if (result.theme == "success") {
+                                toastr.success(result.message, result.title);
+                            } else {
+                                toastr.error(result.message, result.title);
+                            }
+
+                            $('#dg').datagrid('reload');
+                            Swal.close();
+                        }
+                    });
+                }
+            }]
+        });
+
+        $('#process_main_id').combobox({
+            url: '<?php echo base_url('master/item_process_main/reads'); ?>',
+            valueField: 'id',
+            textField: 'name',
+            prompt: 'Choose Main Process'
+        });
+
+        $('#station').numberbox({
+            onChange: function(station){
+                var station_mp = $("#station_mp").numberbox('getValue');
+                $("#mp_actual").numberbox('setValue', (parseInt(station) * parseInt(station_mp)));
+            }
+        });
+
+        $('#station_mp').numberbox({
+            onChange: function(station_mp){
+                var station = $("#station").numberbox('getValue');
+                $("#mp_actual").numberbox('setValue', (parseInt(station) * parseInt(station_mp)));
+            }
+        });
+    });
+
+    //Format Datepicker
+    function myformatter(date) {
+        var y = date.getFullYear();
+        var m = date.getMonth() + 1;
+        var d = date.getDate();
+        return y + '-' + (m < 10 ? ('0' + m) : m) + '-' + (d < 10 ? ('0' + d) : d);
+    }
+
+    //Format Datepicker
+    function myparser(s) {
+        if (!s) return new Date();
+        var ss = (s.split('-'));
+        var y = parseInt(ss[0], 10);
+        var m = parseInt(ss[1], 10);
+        var d = parseInt(ss[2], 10);
+        if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+            return new Date(y, m - 1, d);
+        } else {
+            return new Date();
+        }
+    }
+</script>

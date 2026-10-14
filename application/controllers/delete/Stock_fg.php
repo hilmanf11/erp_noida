@@ -1,0 +1,435 @@
+<?php
+date_default_timezone_set("Asia/Bangkok");
+defined('BASEPATH') or exit('No direct script access allowed');
+class Stock_fg extends CI_Controller
+{
+    public function __construct()
+    {
+        parent::__construct();
+        $this->load->helper('url');
+        $this->load->helper(array('form', 'url'));
+        $this->load->library('form_validation');
+        $this->load->library('session');
+        $this->load->model('crud');
+
+        //VALIDASI FORM
+        // $this->form_validation->set_rules('item_fg_id', 'Product No.', 'required|min_length[1]|max_length[50]|is_unique[stock_fg.item_fg_id]');
+        // $this->form_validation->set_rules('customer_id', 'customer', 'required|min_length[1]|max_length[50]|is_unique[stock_fg.customer_id]');
+    }
+
+    //HALAMAN UTAMA
+    public function index()
+    {
+        if (empty($this->session->username)) {
+            redirect('error_session');
+        } elseif ($this->checkuserAccess($this->id_menu()) > 0) {
+            $data['button'] = $this->getbutton($this->id_menu());
+            $this->load->view('template/header', $data);
+            $this->load->view('planning/stock_fg');
+        } else {
+            redirect('error_access');
+        }
+    }
+
+    //GET DATA
+    public function reads()
+    {
+        $post = isset($_POST['q']) ? $_POST['q'] : "";
+        $send = $this->crud->reads('stock_fg', ["item_fg_id" => $post]);
+        echo json_encode($send);
+    }
+
+    //GET PERIOD
+    public function readPeriod($select)
+    {
+        if ($select == "month") {
+            $month = array('01' => 'January', '02' => 'February', '03' => 'March', '04' => 'April', '05' => 'May', '06' => 'June', '07' => 'July', '08' => 'August', '09' => 'September', '10' => 'October', '11' => 'November', '12' => 'December');
+            foreach ($month as $key => $value) {
+                $months[] = array("id" => $key, "name" => $value);
+            }
+
+            echo json_encode($months);
+        } else if ($select == "year") {
+            $year_before = date('Y', strtotime('-7 year', strtotime(date('Y'))));
+            $year_now = date('Y', strtotime('+1 year', strtotime(date('Y'))));
+            for ($i = $year_now; $i >= $year_before; $i--) {
+                $years[] = array("id" => $i, "name" => $i);
+            }
+
+            echo json_encode($years);
+        } else {
+            show_error("Cannot Process your request");
+        }
+    }
+
+    //GET DATATABLES
+    public function datatables()
+    {
+        $this->pg = $this->load->database('dummy', TRUE);
+        if ($this->input->get()) {
+            //Filter Data
+            $filter_month = base64_decode($this->input->get('filter_period_month'));
+            $filter_year = base64_decode($this->input->get('filter_period_year'));
+            $filter_revision = base64_decode($this->input->get('filter_revision'));
+            // $filter_customer_id = trim(base64_decode($this->input->get('filter_customer_id')));
+            $filter_item_fg_id = trim(base64_decode($this->input->get('filter_item_fg_id')));
+            $startMonth = date("Y-m-d", strtotime($filter_year . "-" . $filter_month . "-01"));
+
+            $items = $this->crud->reads("item_fg", ["id" => $filter_item_fg_id]);
+
+            foreach ($items as $item) {
+                $item_fg_id = $item->id;
+                $item_fg_number = $item->number;
+                $item_fg_name = $item->name;
+
+                $stock_fg = $this->crud->read("stock_fg", [], [
+                    "p_month" => $filter_month,
+                    "p_year" => $filter_year,
+                    "revision" => $filter_revision,
+                    "item_fg_id" => $item_fg_id
+                ]);
+
+                $query = $this->pg->query("SELECT coalesce(round(sum(ith_qty)),0) as stock
+                    from ith
+                    where ith_date <= '$startMonth'
+                    and ith_item_id = '$item_fg_number'
+                    group by ith_item_id
+                    order by ith_item_id asc");
+                $record = $query->row();
+                
+                // $query_cct = $this->pg->query("SELECT max(mstwos_circuitno) as cct from wip_mst_wos where mstwos_assyno = '$item_fg_number'");
+                // $cct = $query_cct->row();
+
+                if($stock_fg){
+                    $status = @$stock_fg->status;
+                    $actual = @$stock_fg->actual;
+                }else{
+                    $status = "EMPTY";
+                    $actual = @$record->stock;
+                }
+
+                if ($record) {
+                    $arr[] = array(
+                        "id" => @$stock_fg->id,
+                        "p_month" => $filter_month,
+                        "p_year" => $filter_year,
+                        "revision" => $filter_revision,
+                        "item_fg_id" => $item_fg_id,
+                        "item_fg_number" => $item_fg_number,
+                        "item_fg_name" => $item_fg_name,
+                        // "circuit_no" => @$cct->cct,
+                        "qty" => @$record->stock,
+                        "actual" => $actual,
+                        "status" => $status,
+                        "approved" => @$stock_fg->approved,
+                        "approved_to" => @$stock_fg->approved_to,
+                        "approved_by" => @$stock_fg->approved_by,
+                        "approved_date" => @$stock_fg->approved_date,
+                        "created_by" => @$stock_fg->created_by,
+                        "created_date" => @$stock_fg->created_date,
+                        "updated_by" => @$stock_fg->updated_by,
+                        "updated_date" => @$stock_fg->updated_date,
+                    );
+                } else {
+                    $arr[] = array(
+                        "id" => @$stock_fg->id,
+                        "p_month" => $filter_month,
+                        "p_year" => $filter_year,
+                        "revision" => $filter_revision,
+                        "item_fg_id" => $item_fg_id,
+                        "item_fg_number" => $item_fg_number,
+                        "item_fg_name" => $item_fg_name,
+                        // "circuit_no" => @$cct->cct,
+                        "qty" => 0,
+                        "actual" => $actual,
+                        "status" => $status,
+                        "approved" => @$stock_fg->approved,
+                        "approved_to" => @$stock_fg->approved_to,
+                        "approved_by" => @$stock_fg->approved_by,
+                        "approved_date" => @$stock_fg->approved_date,
+                        "created_by" => @$stock_fg->created_by,
+                        "created_date" => @$stock_fg->created_date,
+                        "updated_by" => @$stock_fg->updated_by,
+                        "updated_date" => @$stock_fg->updated_date,
+                    );
+                }
+            }
+
+            echo json_encode($arr);
+        }
+    }
+
+    //CREATE DATA
+    public function create()
+    {
+        if ($this->input->post()) {
+            $post = $this->input->post('data');
+            $read = $this->crud->read('stock_fg', [], ["p_month" => $post['p_month'], "p_year" => $post['p_year'], "revision" => $post['revision'], "item_fg_id" => $post['item_fg_id']]);
+            
+            if(empty($read)){
+                $send = $this->crud->create('stock_fg', ["item_fg_id" => $post['item_fg_id'], "p_month" => $post['p_month'], "p_year" => $post['p_year'], "revision" => $post['revision'], "qty" => $post['qty'], "actual" => $post['actual'], "status" => "CREATED"]);
+                echo $send;
+            }else{
+                $send = $this->crud->update('stock_fg', ["item_fg_id" => $post['item_fg_id'], "p_month" => $post['p_month'], "p_year" => $post['p_year'], "revision" => $post['revision'], "qty" => $post['qty'], "actual" => $post['actual'], "status" => $post['status']], ["p_month" => $post['p_month'], "p_year" => $post['p_year'], "revision" => $post['revision'], "item_fg_id" => $post['item_fg_id']]);
+                echo $send;
+            }
+            
+        } else {
+            show_error("Cannot Process your request");
+        }
+    }
+
+    //UPDATE DATA
+    public function update()
+    {
+        if ($this->input->post()) {
+            $id   = base64_decode($this->input->get('id'));
+            $post = $this->input->post();
+            $send = $this->crud->update('stock_fg', ["id" => $id], $post);
+            echo $send;
+        } else {
+            show_error("Cannot Process your request");
+        }
+    }
+
+    //DELETE DATA
+    public function delete()
+    {
+        $data = $this->input->post();
+        $send = $this->crud->delete('stock_fg', $data);
+        echo $send;
+    }
+
+    //UPLOAD DATA
+    public function upload()
+    {
+        error_reporting(0);
+        require_once 'assets/vendors/excel_reader2.php';
+        $target = basename($_FILES['file_upload']['name']);
+        move_uploaded_file($_FILES['file_upload']['tmp_name'], $target);
+        chmod($_FILES['file_upload']['name'], 0777);
+        $file = $_FILES['file_upload']['name'];
+        $data = new Spreadsheet_Excel_Reader($file, false);
+        $total_row = $data->rowcount($sheet_index = 0);
+
+        $p_month = $data->val(2, 3);
+        $p_year = $data->val(2, 4);
+        $revision = $data->val(3, 3);
+
+        for ($i = 5; $i <= $total_row; $i++) {
+            $datas[] = array(
+                'p_month' => $p_month,
+                'p_year' => $p_year,
+                'revision' => $revision,
+                'item_fg_number' => $data->val($i, 2),
+                'qty' => $data->val($i, 3)
+            );
+        }
+
+        $datas['total'] = count($datas);
+        echo json_encode($datas);
+        unlink($_FILES['file_upload']['name']);
+    }
+
+    public function uploadclearFailed()
+    {
+        @unlink('failed/stock_fg.txt');
+    }
+
+    public function uploadcreateFailed()
+    {
+        if ($this->input->post()) {
+            $message = $this->input->post('message');
+            $textFailed = fopen('failed/stock_fg.txt', 'a');
+            fwrite($textFailed, $message . "\n");
+            fclose($textFailed);
+        }
+    }
+
+    //UPLOAD DOWNLOAD FAILED
+    public function uploadDownloadFailed()
+    {
+        $file = "failed/stock_fg.txt";
+        header('Content-Description: File Failed');
+        header('Content-Disposition: attachment; filename=' . basename($file));
+        header('Expires: 0');
+        header('Cache-Control: must-revalidate');
+        header('Pragma: public');
+        header('Content-Length: ' . @filesize($file));
+        header("Content-Type: text/plain");
+        @readfile($file);
+    }
+
+    //UPLOAD CREATE DATA
+    public function uploadcreate()
+    {
+        if ($this->input->post()) {
+            $data = $this->input->post('data');
+            
+            $item_fg = $this->crud->read('item_fg', [], [
+                "number" => $data['item_fg_number'],
+            ]);
+
+            $stock_fg = $this->crud->read('stock_fg', [], [
+                "item_fg_id" => @$item_fg->id,
+                "p_month" => $data['p_month'],
+                "p_year" => $data['p_year'],
+                "revision" => $data['revision'],
+            ]);
+
+            if (empty($item_fg->id)) {
+                echo json_encode(array("title" => "Not found", "message" => " Product No. " . $data['item_fg_number'] . " is Not Found!", "theme" => "error"));
+            } elseif (!empty($stock_fg->item_fg_id)) {
+                echo json_encode(array("title" => "Duplicated", "message" => " Product No. " . $data['item_fg_number'] . " is Duplicate Data", "theme" => "error"));
+            } else {
+                $dataFinal = [
+                    "p_month" => $data['p_month'],
+                    "p_year" => $data['p_year'],
+                    "revision" => $data['revision'],
+                    "item_fg_id" => $item_fg->id,
+                    "qty" => $data['qty'],
+                ];
+
+                $send = $this->crud->create('stock_fg', $dataFinal);
+                echo $send;
+            }
+        }
+    }
+
+    //PRINT & EXCEL DATA
+    public function print($option = "")
+    {
+        if ($option == "excel") {
+            $format  = date("Ymd");
+            header("Content-type: application/vnd-ms-excel");
+            header("Content-Disposition: attachment; filename=stock_fg_$format.xls");
+        }
+
+        $get = $this->input->get();
+        $filter_period_month = @base64_decode($get['filter_period_month']);
+        $filter_period_year = @base64_decode($get['filter_period_year']);
+        $filter_item_fg_id = @base64_decode($get['filter_item_fg_id']);
+        // $filter_customer_id = @base64_decode($get['filter_customer_id']);
+        $filter_revision = @base64_decode($get['filter_revision']);
+
+        //Config
+        $this->db->select('*');
+        $this->db->from('config');
+        $config = $this->db->get()->row();
+
+        $this->db->select('a.*, b.number as item_fg_number, b.name as item_fg_name');
+        $this->db->from('stock_fg a');
+        $this->db->join('item_fg b', 'a.item_fg_id = b.id');
+        $this->db->like('a.p_month', $filter_period_month);
+        $this->db->like('a.p_year', $filter_period_year);
+        $this->db->like('a.item_fg_id', $filter_item_fg_id);
+        // $this->db->like('a.customer_id', $filter_customer_id);
+        // $this->db->like('d.id', $filter_customer_id);
+        $this->db->like('a.revision', $filter_revision);
+        $this->db->group_by('a.p_month');
+        $this->db->group_by('a.p_year');
+        $this->db->group_by('a.revision');
+        $this->db->group_by('a.item_fg_id');
+        // $this->db->group_by('a.customer_id');
+        $this->db->order_by('a.created_date', 'DESC');
+        $records = $this->db->get()->result_array();
+
+        if ($filter_period_month == "01") {
+            $month_name = "JANUARY";
+        } elseif ($filter_period_month == "02") {
+            $month_name = "FEBRUARY";
+        } elseif ($filter_period_month == "03") {
+            $month_name = "MARCH";
+        } elseif ($filter_period_month == "04") {
+            $month_name = "APRIL";
+        } elseif ($filter_period_month == "05") {
+            $month_name = "MAY";
+        } elseif ($filter_period_month == "06") {
+            $month_name = "JUNE";
+        } elseif ($filter_period_month == "07") {
+            $month_name = "JULY";
+        } elseif ($filter_period_month == "08") {
+            $month_name = "AUGUST";
+        } elseif ($filter_period_month == "09") {
+            $month_name = "SEPTEMBER";
+        } elseif ($filter_period_month == "10") {
+            $month_name = "OCTOBER";
+        } elseif ($filter_period_month == "11") {
+            $month_name = "NOVEMBER";
+        } elseif ($filter_period_month == "12") {
+            $month_name = "DECEMBER";
+        }
+
+        $html = '<html><head><title>Print Data</title></head><style>body {font-family: Arial, Helvetica, sans-serif;}#stock_fg {border-collapse: collapse;width: 100%;font-size: 12px;}#stock_fg td, #stock_fg th {border: 1px solid #ddd;padding: 2px;}#stock_fg tr:nth-child(even){background-color: #f2f2f2;}#stock_fg tr:hover {background-color: #ddd;}#stock_fg th {padding-top: 2px;padding-bottom: 2px;text-align: left;color: black;}</style><body>
+        <center>
+            <div style="float: left; font-size: 12px; text-align: left;">
+                <table style="width: 100%;">
+                    <tr>
+                        <td width="50" style="font-size: 12px; vertical-align: top; text-align: center; vertical-align:jus margin-right:10px;">
+                            <img src="' . $config->favicon . '" width="30">
+                        </td>
+                        <td style="font-size: 14px; text-align: left; margin:2px;">
+                            <b>' . $config->name . '</b>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <div style="float: right; font-size: 12px; text-align: right;">
+                Print Date ' . date("d M Y H:m:s") . ' <br>
+                Print By ' . $this->session->username . '  
+            </div>
+            <br><br>
+            <div style="float: centet; font-size: 16px; text-align: center;">
+                <h3>DATA STOCK FINISH GOOD</h3>
+            </div>
+            <div style="float: left; font-size: 12px; text-align: left; width:30%;">
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="font-size: 14px; text-align: left; margin:2px;">
+                            <small>PERIOD</small>
+                        </td>
+                        <td style="font-size: 14px; text-align: left; margin:2px;">
+                            <small>: </small>
+                        </td>
+                        <td style="font-size: 14px; text-align: left; margin:2px;">
+                            <small><b>' . $month_name . ' ' . $filter_period_year . '</b></small>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-size: 14px; text-align: left; margin:2px;">
+                            <small>REVISION</small>
+                        </td>
+                        <td style="font-size: 14px; text-align: left; margin:2px;">
+                            <small>: </small>
+                        </td>
+                        <td style="font-size: 14px; text-align: left; margin:2px;">
+                            <small><b>'.$filter_revision.'</b></small>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </center>
+        
+        <table id="stock_fg" border="1">
+            <tr>
+                <th width="20">No</th>
+                <th>Product No</th>
+                <th>Product Name</th>
+                <th>Stock</th>
+                <th>Actual</th>
+            </tr>';
+        $no = 1;
+        foreach ($records as $data) {
+            $html .= '<tr>
+                        <td>' . $no . '</td>
+                        <td>' . $data['item_fg_number'] . '</td>
+                        <td>' . $data['item_fg_name'] . '</td>
+                        <td>' . number_format($data['qty']) . '</td>
+                        <td>' . number_format($data['actual']) . '</td>
+                    </tr>';
+            $no++;
+        }
+        $html .= '</table></body></html>';
+        echo $html;
+    }
+}
