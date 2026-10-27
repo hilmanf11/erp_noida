@@ -49,7 +49,7 @@ class Report_history_transactions_wip extends CI_Controller
         $this->db->select('*');
         $this->db->from('config');
         $config = $this->db->get()->row();
-
+        
         $records = $this->crud->query("SELECT c.id as item_rm_id, c.number AS item_rm_number, c.name AS item_rm_name, d.name AS item_family_name, c.uom, SUM(a.total) AS need, b.issued, (COALESCE(b.issued, 0) - COALESCE(SUM(a.total), 0)) AS balance 
             FROM item_rm c
             LEFT JOIN (
@@ -62,9 +62,9 @@ class Report_history_transactions_wip extends CI_Controller
             LEFT JOIN (SELECT item_rm_id, SUM(qty) AS issued FROM issued_material_details WHERE DATE_FORMAT(created_date, '%Y-%m-%d') BETWEEN '$filter_from' AND '$filter_to' and request_no NOT LIKE '%PR-%' GROUP BY item_rm_id) b ON c.id = b.item_rm_id
             JOIN item_familys d ON c.item_family_id = d.id
             WHERE c.item_family_id like '%$filter_item_family%' and c.id like '%$filter_items%'
-            GROUP BY c.id
+            GROUP BY a.item_rm_id
             ORDER BY c.item_family_id, c.id asc");
-
+        
         $html = '<html><head><title>Print Data</title></head><style>body {font-family: Arial, Helvetica, sans-serif;}#customers {border-collapse: collapse;width: 100%;font-size: 12px;}#customers td, #customers th {border: 1px solid #ddd;padding: 2px;}#customers tr:nth-child(even){background-color: #f2f2f2;}#customers tr:hover {background-color: #ddd;}#customers th {padding-top: 2px;padding-bottom: 2px;text-align: center;color: black;}</style><body>
             <center>
             <div style="float: left; font-size: 12px; text-align: left;">
@@ -75,7 +75,7 @@ class Report_history_transactions_wip extends CI_Controller
                         </td>
                         <td style="font-size: 14px; text-align: left; margin:2px;">
                             <b>' . $config->name . '</b><br>
-                            <small>' . $config->description . '</small>
+                            <small>'.$config->description.'</small>
                         </td>
                     </tr>
                 </table>
@@ -106,12 +106,12 @@ class Report_history_transactions_wip extends CI_Controller
         foreach ($records as $record) {
             $item_rm_id = $record->item_rm_id;
 
-            if ($record->balance > 0) {
+            if($record->balance > 0){
                 $style = "";
-            } else {
+            }else{
                 $style = "background: red; color:white;";
             }
-
+            
             $html .= '  <tr>
                             <td style="text-align:center">' . $no . '</td>
                             <td>' . $record->item_rm_id . '</td>
@@ -121,9 +121,9 @@ class Report_history_transactions_wip extends CI_Controller
                             <td>' . $record->uom . '</td>
                             <td style="text-align:right;">' . number_format($record->need, 0) . '</td>
                             <td style="text-align:right;">' . number_format($record->issued, 0) . '</td>
-                            <td style="text-align:right; ' . $style . '">' . number_format($record->balance, 0) . '</td>
+                            <td style="text-align:right; '.$style.'">' . number_format($record->balance, 0) . '</td>
                         </tr>';
-
+                        
             if ($filter_display == "DETAIL") {
                 $html .= '  <tr>
                                 <td colspan="9" style="background:#D1FFC6;"><b>DETAIL OF ' . $record->item_rm_number . ' - ' . $record->item_rm_name . '</b></td>
@@ -160,7 +160,7 @@ class Report_history_transactions_wip extends CI_Controller
                 $nod = 1;
                 foreach ($details as $detail) {
                     $html .= '  <tr>
-                                    <td style="text-align:center">' . $no . "." . $nod . '</td>
+                                    <td style="text-align:center">' . $no. "." .$nod . '</td>
                                     <td>' . $detail->request_no . '</td>
                                     <td>' . $detail->workorder . '</td>
                                     <td>' . $detail->number_customer . '</td>

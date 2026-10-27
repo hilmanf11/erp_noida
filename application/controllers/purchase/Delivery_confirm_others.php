@@ -60,7 +60,7 @@ class Delivery_confirm_others extends CI_Controller
         $data = $this->crud->query("SELECT b.id, b.number, b.name, SUM(a.qty) as qty_po, (SUM(a.qty) - COALESCE(c.delivery, 0)) as qty, b.uom, a.delivery_date, DATE_FORMAT(now(), '%Y-%m-%d') as today, (SUM(a.qty) - COALESCE(c.delivery, 0)) as delivery, COALESCE(c.delivery, 0) as actual
             FROM purchase_order_others a 
             JOIN item_rm b ON a.item_rm_id = b.id
-            LEFT JOIN (SELECT po_no, item_rm_id, supplier_id, SUM(delivery) as delivery FROM purchase_confirm_others GROUP BY po_no, item_rm_id, supplier_id) c ON a.po_no = c.po_no and a.item_rm_id = c.item_rm_id and a.supplier_id = c.supplier_id
+            LEFT JOIN (SELECT po_no, item_rm_id, supplier_id, SUM(delivery) as delivery FROM purchase_confirm_others WHERE status != '2' GROUP BY po_no, item_rm_id, supplier_id) c ON a.po_no = c.po_no and a.item_rm_id = c.item_rm_id and a.supplier_id = c.supplier_id
             WHERE a.po_no = '$po_no' and a.status = 0 and (b.number LIKE '%$post%' and b.id like '%$post%')
             GROUP BY a.item_rm_id
             ORDER BY b.number asc");
@@ -97,25 +97,11 @@ class Delivery_confirm_others extends CI_Controller
     public function checkInvoice(){
         $invoice_no = trim($this->input->post("invoice_no"));
         $supplier_id = trim($this->input->post("supplier_id"));
-        $invoice_date = trim($this->input->post("invoice_date"));
-
-        // $read = $this->crud->query("SELECT id FROM purchase_order_receipts WHERE bc_document = '$invoice_no' and supplier_id = '$supplier_id' and `status` in ('0','1')");
-        // $read2 = $this->crud->reads("purchase_confirm", [], ["invoice_no" => $invoice_no, "supplier_id" => $supplier_id]);
-        $read2 = $this->crud->query("SELECT * FROM purchase_confirm_others WHERE invoice_no = '$invoice_no' and supplier_id = '$supplier_id' and status in ('0','1') ORDER BY invoice_date desc");
-        $read3 = $this->crud->query("SELECT DISTINCT start_date, end_date FROM menus_no WHERE menus_id = '20241128000002' AND start_date <= '$invoice_date' AND end_date >= '$invoice_date'");
+        // $read = $this->crud->reads("purchase_order_receipts", [], ["bc_document" => $invoice_no]);
+        $read = $this->crud->reads("purchase_confirm_others", [], ["invoice_no" => $invoice_no, "supplier_id" => $supplier_id]);
         
-        if(count($read2) > 0){
-            if(count($read3) > 0){
-                $invoice_date_bf = @$read2[0]->invoice_date;
-                $read4 = $this->crud->query("SELECT DISTINCT start_date, end_date FROM menus_no WHERE menus_id = '20241128000002' AND start_date <= '$invoice_date_bf' AND end_date >= '$invoice_date_bf'");
-                if(@$read3[0]->start_date == @$read4[0]->start_date){
-                    die("NG");
-                }else{
-                    die("OK");
-                }
-            }else{
-                die("NG");
-            }
+        if(count($read) > 0){
+            die("NG");
         }else{
             die("OK");
         }
@@ -475,7 +461,6 @@ class Delivery_confirm_others extends CI_Controller
         <table id="customers" border="1">
             <tr>
                 <th width="20">No</th>
-                <th>Supplier ID</th>
                 <th>Supplier Name</th>
                 <th>Delivery No</th>
                 <th>Invoice No</th>
@@ -495,7 +480,6 @@ class Delivery_confirm_others extends CI_Controller
         foreach ($records as $data) {
             $html .= '  <tr>
                             <td>' . $no . '</td>
-                            <td>' . $data['supplier_id'] . '</td>
                             <td>' . $data['supplier_name'] . '</td>
                             <td>' . $data['delivery_no'] . '</td>
                             <td>' . $data['invoice_no'] . '</td>

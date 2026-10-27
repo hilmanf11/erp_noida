@@ -1,6 +1,6 @@
 <!-- TABLE DATAGRID -->
 <table id="dg" class="easyui-datagrid" style="width:99.5%;" toolbar="#toolbar" data-options="
-    url: '<?= base_url('approvals/approvalPO/'.base64_encode($approved_to).'/'.base64_encode($approved_by)) ?>',
+    url: '<?= base_url('approvals/approvalPO/' . base64_encode($approved_to) . '/' . base64_encode($approved_by)) ?>',
     pagination: false,
     clientPaging: false,
     rownumbers: true,
@@ -18,6 +18,9 @@
             <th data-options="field:'grandtotal',width:150,halign:'center',align:'right',formatter: numberformatPrice">Grand Total</th>
             <th data-options="field:'note',width:280,halign:'center'">Note</th>
             <th data-options="field:'attachment',width:80,align:'center',formatter: btnDetails">Attachment</th>
+            <th data-options="field:'payment_term',width:280,halign:'center'">Payment Term</th>
+            <th data-options="field:'incoterm',width:280,halign:'center'">Incoterm</th>
+            <th data-options="field:'terms',width:100,halign:'center',formatter:btnTerms">Terms<br>Condition</th>
             <!-- <th data-options="field:'remarks1',width:200,halign:'center'">Remarks Approval 1</th> -->
             <!-- <th data-options="field:'remarks2',width:200,halign:'center'">Remarks Approval 2</th> -->
             <!-- <th data-options="field:'remarks3',width:200,halign:'center'">Remarks Approval 3</th> -->
@@ -33,7 +36,7 @@
 <!-- TOOLBAR DATAGRID -->
 <div id="toolbar2" style="height: 35px;">
     <a href="javascript:void(0)" id="approveacheck" class="easyui-linkbutton" data-options="plain:true" onclick="approve()"><i class="fa fa-check"></i> Approve</a>
-	<a href="javascript:void(0)" id="approveacheck" class="easyui-linkbutton" data-options="plain:true" onclick="disapprove()"><i class="fa fa-times"></i> Disapprove</a>
+    <a href="javascript:void(0)" id="approveacheck" class="easyui-linkbutton" data-options="plain:true" onclick="disapprove()"><i class="fa fa-times"></i> Disapprove</a>
     <a href="javascript:void(0)" class="easyui-linkbutton" data-options="plain:true" onclick="export_excel()"><i class="fa fa-file"></i> Export Excel</a>
 </div>
 
@@ -75,11 +78,11 @@
     }
 
     function export_excel() {
-		$('#dg_details').datagrid('toExcel', "approval_<?= $table ?>.xls");
-	}
+        $('#dg_details').datagrid('toExcel', "approval_<?= $table ?>.xls");
+    }
 
-	function approve() {
-		var rows = $('#dg_details').datagrid('getSelections');
+    function approve() {
+        var rows = $('#dg_details').datagrid('getSelections');
         if (rows.length > 0) {
             $("#dlg_details").window('close');
 
@@ -104,9 +107,10 @@
                     });
 
                     requestApprove(rows.length, rows);
+
                     function requestApprove(total, json, number = 1, value = 0) {
                         if (value < 100) {
-                            var row = json[number-1];
+                            var row = json[number - 1];
                             value = Math.floor((number / total) * 100);
 
                             $.ajax({
@@ -143,10 +147,10 @@
         } else {
             toastr.info("Please select one of the data in the table first");
         }
-	}
+    }
 
-	function disapprove() {
-		var rows = $('#dg_details').datagrid('getSelections');
+    function disapprove() {
+        var rows = $('#dg_details').datagrid('getSelections');
         if (rows.length > 0) {
             $("#dlg_details").window('close');
 
@@ -160,8 +164,8 @@
                 confirmButtonText: 'Yes, Dispprove it!'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    $.messager.prompt('Reason', 'Please input your reason!!', function(message){
-                        if (message){
+                    $.messager.prompt('Reason', 'Please input your reason!!', function(message) {
+                        if (message) {
                             Swal.fire({
                                 title: 'Please Wait...',
                                 showConfirmButton: false,
@@ -173,9 +177,10 @@
                             });
 
                             requestApprove(rows.length, rows);
+
                             function requestApprove(total, json, number = 1, value = 0) {
                                 if (value < 100) {
-                                    var row = json[number-1];
+                                    var row = json[number - 1];
                                     value = Math.floor((number / total) * 100);
 
                                     $.ajax({
@@ -207,7 +212,7 @@
                                     });
                                 }
                             }
-                        }else{
+                        } else {
                             Swal.fire(
                                 'Cannot Process',
                                 'Please Input your reason to Process Disapprove',
@@ -220,15 +225,15 @@
         } else {
             toastr.info("Please select one of the data in the table first");
         }
-	}
+    }
 
     function numberformat(value, row) {
-		const formatter = new Intl.NumberFormat('ja-JP');
+        const formatter = new Intl.NumberFormat('ja-JP');
 
-		return "<b>" + formatter.format(value) + "</b>";
-	}
+        return "<b>" + formatter.format(value) + "</b>";
+    }
 
-	function numberformatPrice(value, row){
+    function numberformatPrice(value, row) {
         const formatter = new Intl.NumberFormat('ja-JP', {
             minimumFractionDigits: 4
         });
@@ -237,16 +242,16 @@
     }
 
     function BtnAttachment(val, row) {
-        if(val == "" || val == null){
+        if (val == "" || val == null) {
             return '-';
-        }else{
+        } else {
             return '<a class="btn btn-primary w-100" style="pointer-events: visible; opacity:1;" target="_blank" href="' + val + '"><i class="fa fa-paperclip"></i> View</a>';
         }
     }
 
     function BtnDetail(val, row) {
-        var details = "details('"+row.po_no+"','"+row.supplier_name+"')";
-        return '<a class="btn btn-primary w-100" style="pointer-events: visible; opacity:1;" onClick="'+details+'"><i class="fa fa-eye"></i> View</a>';
+        var details = "details('" + row.po_no + "','" + row.supplier_name + "')";
+        return '<a class="btn btn-primary w-100" style="pointer-events: visible; opacity:1;" onClick="' + details + '"><i class="fa fa-eye"></i> View</a>';
     }
 
     function details(po_no, supplier_name) {
@@ -254,22 +259,44 @@
         $('#dlg_details').window('setTitle', 'Detail of ' + supplier_name);
 
         $('#dg_details').datagrid({
-            url: '<?= base_url('approvals/approvalPODetails/'.base64_encode($approved_to).'/'.base64_encode($approved_by)) ?>?po_no=' + btoa(po_no),
+            url: '<?= base_url('approvals/approvalPODetails/' . base64_encode($approved_to) . '/' . base64_encode($approved_by)) ?>?po_no=' + btoa(po_no),
             clientPaging: false,
             remoteFilter: true,
             rownumbers: true,
             singleSelect: false,
-            fit:true,
+            fit: true,
         });
     }
 
     function btnDetails(val, row, index) {
         var attachment = row.attachment;
-        
+
         if (attachment != null && attachment != "") {
-            return '<a class="btn btn-primary w-100" target="_blank" href="<?= base_url('assets/documents/purchase_orders/') ?>'+row.attachment+'" style="pointer-events: visible; opacity:1;"><i class="fa fa-eye"></i> View</a>';
+            return '<a class="btn btn-primary w-100" target="_blank" href="<?= base_url('assets/documents/purchase_orders/') ?>' + row.attachment + '" style="pointer-events: visible; opacity:1;"><i class="fa fa-eye"></i> View</a>';
         } else {
             return '-';
         }
+    }
+
+    function btnTerms(val, row) {
+        var details = "terms('" + row.po_no + "')";
+        return '<a class="btn btn-primary w-100" style="pointer-events: visible; opacity:1;" onClick="' + details + '"><i class="fa fa-eye"></i> View</a>';
+    }
+
+    function terms(po_no) {
+        $.ajax({
+            type: "post",
+            url: "<?= base_url('purchase/purchase_orders/readTerm') ?>",
+            data: "po_no=" + po_no,
+            dataType: "json",
+            success: function(json) {
+                Swal.fire({
+                    title: 'Terms Condition',
+                    html: json.terms,
+                    showCloseButton: true,
+                    confirmButtonText: 'Got it!'
+                });
+            }
+        });
     }
 </script>

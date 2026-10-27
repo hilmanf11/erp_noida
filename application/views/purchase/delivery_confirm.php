@@ -93,7 +93,6 @@
         </div>
     </fieldset>
     <?= $button ?>
-    <a href="javascript:void(0)" class="easyui-linkbutton" data-options="plain:true" onclick="sendWms()"><i class="fa fa-database"></i> Send to WMS</a>
 </div>
 
 <div id="dlg_insert" class="easyui-dialog" title="Add New" data-options="closed: true,modal:true" style="width: 98%; height: 550px; padding:10px; top: 10px; left: 10px;">
@@ -451,11 +450,9 @@
                     halign: 'center',
                     title: "ETA",
                     editor: {
-                        type: 'datebox',
+                        type: 'textbox',
                         options: {
-                            formatter: myformatter,
-                            parser: myparser,
-                            required: true
+                            readonly: true
                         }
                     }
                 }, {
@@ -772,89 +769,6 @@
         }
     }
 
-    //Send WMS Data
-    function sendWms() {
-        var rows = $('#dg').datagrid('getSelections');
-        if (rows.length > 0) {
-            Swal.fire({
-                title: 'Send Data',
-                text: "Are you sure? You want to send this data to WMS!",
-                icon: 'warning',
-                showCancelButton: true,
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                confirmButtonText: 'Yes, Send it!'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    Swal.fire({
-                        title: 'Please Wait...',
-                        showConfirmButton: false,
-                        allowOutsideClick: false,
-                        allowEscapeKey: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                        },
-                    });
-
-                    requestSend(rows.length, rows);
-
-                    function requestSend(total, json, number = 1, value = 0) {
-                        if (value < 100) {
-                            var row = json[number - 1];
-                            value = Math.floor((number / total) * 100);
-
-                            var tanggalAsal = row.created_date;
-                            var dateObj = new Date(tanggalAsal.replace(" ", "T"));
-                            var tahun = dateObj.getFullYear();
-                            var bulan = String(dateObj.getMonth() + 1).padStart(2, '0');
-                            var hari = String(dateObj.getDate()).padStart(2, '0');
-                            var tanggalBaru = tahun + "-" + bulan + "-" + hari;
-
-                            if (row.receipt_date >= "2026-07-03") {
-                                $.ajax({
-                                    method: 'post',
-                                    url: '<?= base_url("api/wms/otw") ?>',
-                                    data: {
-                                        id: row.id
-                                    },
-                                    success: function(result) {
-                                        var result = eval('(' + result + ')');
-                                        requestSend(total, json, number + 1, value);
-
-                                        if (number == total) {
-                                            $('#dg').datagrid('reload');
-                                            Swal.close();
-                                            if (result.success) {
-                                                Swal.fire("", result.message, "success");
-                                            } else {
-                                                Swal.fire("", result.message, "error");
-                                            }
-                                        }
-                                    },
-                                    error: function(jqXHR, textStatus, errorThrown) {
-                                        toastr.error("Failed to Sending Data WMS");
-                                        swal.close();
-                                    },
-                                });
-                            } else {
-                                requestSend(total, json, number + 1, value);
-
-                                if (number == total) {
-                                    $('#dg').datagrid('reload');
-                                    Swal.close();
-                                }
-
-                                toastr.error("Transaction Date not Process < 2026-07-03");
-                            }
-                        }
-                    }
-                }
-            });
-        } else {
-            toastr.info("Please select one of the data in the table first");
-        }
-    }
-
     // UPLOAD DATA
     function upload() {
         $('#dlg_upload').dialog('open');
@@ -1047,78 +961,15 @@
                                                 success: function(result) {
                                                     if (i == (total - 1)) {
                                                         Swal.close();
-
                                                         Swal.fire({
-                                                            title: 'Send Data',
-                                                            text: "Save Data Successfully, Do You want to send this data to WMS!",
-                                                            icon: 'warning',
-                                                            showCancelButton: true,
+                                                            title: result.message,
+                                                            icon: result.theme,
+                                                            confirmButtonText: 'Ok',
                                                             allowOutsideClick: false,
-                                                            allowEscapeKey: false,
-                                                            confirmButtonText: 'Yes, Send it!'
                                                         }).then((result) => {
                                                             if (result.isConfirmed) {
-                                                                Swal.fire({
-                                                                    title: 'Please Wait...',
-                                                                    showConfirmButton: false,
-                                                                    allowOutsideClick: false,
-                                                                    allowEscapeKey: false,
-                                                                    didOpen: () => {
-                                                                        Swal.showLoading();
-                                                                    },
-                                                                });
-
-                                                                // requestSend(totalrows, rows);
-                                                                // function requestSend(total, json, number = 1, value = 0) {
-                                                                // if (value < 100) {
-                                                                // var row = json[number-1];
-                                                                // value = Math.floor((number / total) * 100);
-
-                                                                $.ajax({
-                                                                    method: 'post',
-                                                                    url: '<?= base_url("api/wms/otw") ?>',
-                                                                    data: {
-                                                                        invoice_no: invoice_no,
-                                                                        supplier_id: supplier_id
-                                                                    },
-                                                                    success: function(result) {
-                                                                        var result = eval('(' + result + ')');
-
-                                                                        if (result.success) {
-                                                                            Swal.fire({
-                                                                                title: '<strong>Status Sending</strong>',
-                                                                                icon: 'success',
-                                                                                html: result.message,
-                                                                                confirmButtonText: 'Ok',
-                                                                                allowOutsideClick: false,
-                                                                                width: '500px',
-                                                                            }).then((result) => {
-                                                                                if (result.isConfirmed) {
-                                                                                    // window.location.reload();
-                                                                                    $('#dg').datagrid('reload');
-                                                                                }
-                                                                            });
-                                                                        } else {
-                                                                            Swal.fire({
-                                                                                title: result.message,
-                                                                                icon: "error",
-                                                                                confirmButtonText: 'Ok',
-                                                                                allowOutsideClick: false,
-                                                                            }).then((result) => {
-                                                                                if (result.isConfirmed) {
-                                                                                    // window.location.reload();
-                                                                                    $('#dg').datagrid('reload');
-                                                                                }
-                                                                            });
-                                                                        }
-                                                                    },
-                                                                    error: function(jqXHR, textStatus, errorThrown) {
-                                                                        toastr.error("Failed to Sending Data WMS");
-                                                                        swal.close();
-                                                                    },
-                                                                });
-                                                                //     }
-                                                                // }
+                                                                // window.location.reload();
+                                                                $('#dg').datagrid('reload');
                                                             }
                                                         });
                                                     }

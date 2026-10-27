@@ -79,18 +79,62 @@
 </div>
 
 <!-- EXCEPTION REPORT -->
-<div id="dlg_exception" class="easyui-dialog" title="Exception Report" data-options="closed: true,modal:true" style="width: 80%; height: 550px; top: 20px;">
+<div id="dlg_exception" class="easyui-dialog" title="Exception Report (Material Requirements Planning)" data-options="closed: true,modal:true,maximizable:true" style="width: 95%; height: 600px; top: 20px;">
     <table id="dg_exception" class="easyui-datagrid" style="width:100%;" toolbar="#toolbar">
         <thead>
             <tr>
-                <th data-options="field:'item_rm_id',width:120,halign:'center'">Part No EBWS</th>
-                <th data-options="field:'item_rm_number',width:250,halign:'center'">Part No Supplier</th>
-                <th data-options="field:'item_rm_name',width:250,halign:'center'">Description</th>
-                <th data-options="field:'mpq',width:80,align:'center', styler:numberStyle">MPQ</th>
-                <th data-options="field:'moq',width:80,align:'center', styler:numberStyle">MOQ</th>
-                <th data-options="field:'leadtime',width:80,align:'center', styler:numberStyle">Leadtime <br>(Days)</th>
-                <th data-options="field:'share_order',width:80,align:'center', styler:numberStyle">Share Order %</th>
-                <th data-options="field:'hsn_code',width:100,align:'center', styler:hsnStyle">HSN</th>
+                <th rowspan="2" data-options="field:'item_rm_id',width:110,halign:'center'">Part No EBWS</th>
+                <th rowspan="2" data-options="field:'item_rm_number',width:140,halign:'center'">Part No Supplier</th>
+                <th rowspan="2" data-options="field:'item_rm_name',width:180,halign:'center'">Description</th>
+                <th rowspan="2" data-options="field:'product_family',width:110,halign:'center'">Product Family</th>
+                <th rowspan="2" data-options="field:'supplier_number',width:90,align:'center',halign:'center'">Supplier Code</th>
+                <th rowspan="2" data-options="field:'supplier_name',width:140,halign:'center'">Supplier Name</th>
+                <th rowspan="2" data-options="field:'price',width:80,align:'right',halign:'center',formatter:numberformatPrice">Price</th>
+                <th rowspan="2" data-options="field:'leadtime',width:60,align:'center',halign:'center',formatter:numberformat,styler:numberStyle">PO L/T</th>
+                <th rowspan="2" data-options="field:'mpq',width:70,align:'right',halign:'center',formatter:numberformat,styler:numberStyle">MPQ</th>
+                <th rowspan="2" data-options="field:'moq',width:70,align:'right',halign:'center',formatter:numberformat,styler:numberStyle">MOQ</th>
+                <th rowspan="2" data-options="field:'share_order',width:60,align:'center',halign:'center',formatter:numberformat,styler:numberStyle">Share %</th>
+                <th rowspan="2" data-options="field:'hsn_code',width:80,align:'center',halign:'center',styler:hsnStyle">HSN</th>
+                <th colspan="7" data-options="halign:'center'">STOCK RAW MATERIAL</th>
+                <th colspan="2" data-options="halign:'center'"><b id="exp_th_m1">Month 1</b></th>
+                <th colspan="2" data-options="halign:'center'"><b id="exp_th_m2">Month 2</b></th>
+                <th colspan="2" data-options="halign:'center'"><b id="exp_th_m3">Month 3</b></th>
+                <th colspan="2" data-options="halign:'center'"><b id="exp_th_m4">Month 4</b></th>
+                <th colspan="2" data-options="halign:'center'"><b id="exp_th_m5">Month 5</b></th>
+                <th colspan="2" data-options="halign:'center'"><b id="exp_th_m6">Month 6</b></th>
+                <th colspan="2" data-options="halign:'center'">6 > Month</th>
+                <th rowspan="2" data-options="field:'total_need',width:90,align:'right',halign:'center',formatter:numberformat,styler:totalNeedStyle">TOTAL NEED</th>
+                <th rowspan="2" data-options="field:'exception_remark',width:240,halign:'center',styler:exceptionStyle">Exception Note</th>
+            </tr>
+            <tr>
+                <th data-options="field:'qty_rm',width:75,align:'right',halign:'center',formatter:numberformat">WHS</th>
+                <th data-options="field:'qty_wip',width:70,align:'right',halign:'center',formatter:numberformat">WIP</th>
+                <th data-options="field:'qty_vendor',width:85,align:'right',halign:'center',formatter:numberformat">OS SUPPLIER</th>
+                <th data-options="field:'qty_gate',width:70,align:'right',halign:'center',formatter:numberformat">GRN</th>
+                <th data-options="field:'total_stock',width:85,align:'right',halign:'center',formatter:numberformat,styler:boldStyle">TOTAL</th>
+                <th data-options="field:'qty_supply',width:75,align:'right',halign:'center',formatter:numberformat">OS SUPPLY</th>
+                <th data-options="field:'total_wo',width:75,align:'right',halign:'center',formatter:numberformat">TOTAL OS</th>
+
+                <th data-options="field:'need_1',width:70,align:'right',halign:'center',formatter:numberformat">NEED</th>
+                <th data-options="field:'balance_1',width:75,align:'right',halign:'center',formatter:numberformat,styler:balanceStyle">BAL</th>
+
+                <th data-options="field:'need_2',width:70,align:'right',halign:'center',formatter:numberformat">NEED</th>
+                <th data-options="field:'balance_2',width:75,align:'right',halign:'center',formatter:numberformat,styler:balanceStyle">BAL</th>
+
+                <th data-options="field:'need_3',width:70,align:'right',halign:'center',formatter:numberformat">NEED</th>
+                <th data-options="field:'balance_3',width:75,align:'right',halign:'center',formatter:numberformat,styler:balanceStyle">BAL</th>
+
+                <th data-options="field:'need_4',width:70,align:'right',halign:'center',formatter:numberformat">NEED</th>
+                <th data-options="field:'balance_4',width:75,align:'right',halign:'center',formatter:numberformat,styler:balanceStyle">BAL</th>
+
+                <th data-options="field:'need_5',width:70,align:'right',halign:'center',formatter:numberformat">NEED</th>
+                <th data-options="field:'balance_5',width:75,align:'right',halign:'center',formatter:numberformat,styler:balanceStyle">BAL</th>
+
+                <th data-options="field:'need_6',width:70,align:'right',halign:'center',formatter:numberformat">NEED</th>
+                <th data-options="field:'balance_6',width:75,align:'right',halign:'center',formatter:numberformat,styler:balanceStyle">BAL</th>
+
+                <th data-options="field:'avg_need',width:70,align:'right',halign:'center',formatter:numberformat">NEED</th>
+                <th data-options="field:'avg_balance',width:75,align:'right',halign:'center',formatter:numberformat,styler:balanceStyle">BAL</th>
             </tr>
         </thead>
     </table>
@@ -134,6 +178,7 @@
         var filter_month = $("#filter_month").combobox('getValue');
         var filter_year = $("#filter_year").combobox('getValue');
         var filter_revision = $("#filter_revision").combobox('getValue');
+        var filter_cutoff = $("#filter_cutoff").datebox('getValue');
 
         if(filter_month == "" || filter_year == "" || filter_revision == ""){
             toastr.warning("Please Choose Filter Date and Revision!");
@@ -149,11 +194,24 @@
             data: {
                 filter_month: filter_month,
                 filter_year: filter_year,
-                filter_revision: filter_revision
+                filter_revision: filter_revision,
+                filter_cutoff: filter_cutoff
             },
             dataType: 'json',
             success: function(result) {
+                if (result.periods) {
+                    $('#exp_th_m1').html(result.periods.p1);
+                    $('#exp_th_m2').html(result.periods.p2);
+                    $('#exp_th_m3').html(result.periods.p3);
+                    $('#exp_th_m4').html(result.periods.p4);
+                    $('#exp_th_m5').html(result.periods.p5);
+                    $('#exp_th_m6').html(result.periods.p6);
+                }
                 $('#dg_exception').datagrid('loadData', result).datagrid('loaded');
+            },
+            error: function() {
+                $('#dg_exception').datagrid('loaded');
+                toastr.error("Failed to load exception report");
             }
         });
     }
@@ -570,6 +628,7 @@
             clientPaging: true,
             rownumbers: true,
             fit: true,
+            fitColumns: false,
             pageList: [20, 50, 100, 500, 1000],
             pageSize: 20,
         }).datagrid('enableFilter');
@@ -686,15 +745,18 @@
                         [{
                             field: 'id',
                             title: 'Part No EBWS',
-                            width: 150
+                            width: 150,
+                            halign: 'center'
                         },{
                             field: 'number',
                             title: 'Part No Supplier',
-                            width: 200
+                            width: 200,
+                            halign: 'center'
                         }, {
                             field: 'name',
                             title: 'Description',
-                            width: 200
+                            width: 200,
+                            halign: 'center'
                         }]
                     ]
                 });
@@ -724,8 +786,34 @@
         }
     }
 
+    function numberformat(value, row, index) {
+        if (value === null || value === undefined || value === "") {
+            return "0";
+        }
+        var num = (typeof value === 'string') ? parseFloat(value.replace(/,/g, '')) : parseFloat(value);
+        if (isNaN(num)) {
+            return value;
+        }
+        return new Intl.NumberFormat('en-US').format(num);
+    }
+
+    function numberformatPrice(value, row, index) {
+        if (value === null || value === undefined || value === "") {
+            return "0.00";
+        }
+        var num = (typeof value === 'string') ? parseFloat(value.replace(/,/g, '')) : parseFloat(value);
+        if (isNaN(num)) {
+            return value;
+        }
+        return new Intl.NumberFormat('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).format(num);
+    }
+
     function numberStyle(value, row, index) {
-        if (value == 0) {
+        var num = (typeof value === 'string') ? parseFloat(value.replace(/,/g, '')) : parseFloat(value);
+        if (num == 0) {
             return 'background-color:#FFC8C8;';
         } else {
             return 'background-color:#C8FFCC;';
@@ -733,10 +821,34 @@
     }
 
     function hsnStyle(value, row, index) {
-        if (value == "-") {
+        if (value == "-" || value == "" || value === null) {
             return 'background-color:#FFC8C8;';
         } else {
             return 'background-color:#C8FFCC;';
         }
+    }
+
+    function balanceStyle(value, row, index) {
+        var num = (typeof value === 'string') ? parseFloat(value.replace(/,/g, '')) : parseFloat(value);
+        if (num < 0) {
+            return 'color: #d9534f; font-weight: bold;';
+        }
+        return '';
+    }
+
+    function totalNeedStyle(value, row, index) {
+        var num = (typeof value === 'string') ? parseFloat(value.replace(/,/g, '')) : parseFloat(value);
+        if (num > 0) {
+            return 'background-color: #FFECEC; color: #c9302c; font-weight: bold;';
+        }
+        return '';
+    }
+
+    function boldStyle(value, row, index) {
+        return 'font-weight: bold;';
+    }
+
+    function exceptionStyle(value, row, index) {
+        return 'background-color: #FFF3CD; color: #856404; font-weight: bold;';
     }
 </script>

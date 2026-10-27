@@ -85,7 +85,6 @@
                                     type: "POST",
                                     url: "<?= base_url('warehouse/item_rejections/create') ?>",
                                     data: "label_no=" + label_no +
-                                        "&item_rm_id=" + row[i].item_rm_id +
                                         "&receipt_no=" + row[i].receipt_no +
                                         "&receipt_id=" + row[i].receipt_id +
                                         "&po_no=" + row[i].po_no +

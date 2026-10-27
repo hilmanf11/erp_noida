@@ -32,10 +32,6 @@ class Report_bank_statements extends CI_Controller
 
     public function print($option = "")
     {
-        header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
-        header("Cache-Control: post-check=0, pre-check=0", false);
-        header("Pragma: no-cache");
-
         if ($option == "excel") {
             $format  = date("Ymd");
             header("Content-type: application/vnd-ms-excel");
@@ -56,156 +52,218 @@ class Report_bank_statements extends CI_Controller
         $time_start = new DateTime($filter_from);
         $time_to = new DateTime($filter_to);
 
-        // $account_coa = $this->crud->read("account_coa", [], ["account_number" => $filter_account]);
+        $account_coa = $this->crud->read("account_coa", [], ["account_number" => $filter_account]);
+
+        $ar_receipt_begin = $this->crud->query("SELECT z.account_number, 
+                    (SUM(z.local_debit) - SUM(z.local_credit)) as local_begin, 
+                    (SUM(z.debit) - SUM(z.credit)) as original_begin 
+            FROM (SELECT a.*, b.currency
+            FROM ar_receipt_journals a 
+            JOIN ar_receipts b ON a.receipt_no = b.receipt_no 
+            WHERE b.receipt_date < '$filter_from' and a.account_number = '$filter_account' 
+            GROUP BY a.receipt_no, a.account_number, a.description) z GROUP BY z.account_number");
+
+        $ap_payment_begin = $this->crud->query("SELECT a.account_number, (SUM(a.local_debit) - SUM(a.local_credit)) as local_begin, (SUM(a.debit) - SUM(a.credit)) as original_begin
+            FROM (
+            SELECT a.*
+            FROM ap_payment_journals a 
+            JOIN ap_payments b ON a.payment_no = b.payment_no 
+            WHERE b.payment_date between '2023-01-01' and '$filter_from_1' and a.account_number = '$filter_account' GROUP BY a.account_number, b.payment_no) a
+            GROUP BY a.payment_no, a.account_number, a.description");
+            
+        $journal_adj_begin = $this->crud->query("SELECT `number`, document_no, `description`, currency, rates,
+            (COALESCE(SUM(original_debit), 0) - COALESCE(SUM(original_credit), 0)) as original_begin,
+            (COALESCE(SUM(local_debit), 0) - COALESCE(SUM(local_credit), 0)) as local_begin
+        FROM journal_postings
+        WHERE account_number = '$filter_account' and modul = 'ADJUSTMENT' and journal_date < '$filter_from'
+        GROUP BY account_number");
+        
+        $journal_posting_begin = $this->crud->query("SELECT `number`, document_no, `description`, currency, rates,
+            (COALESCE(SUM(original_credit), 0) - COALESCE(SUM(original_debit), 0)) as original_begin,
+            (COALESCE(SUM(local_credit), 0) - COALESCE(SUM(local_debit), 0)) as local_begin
+        FROM journal_postings
+        WHERE account_number = '$filter_account' and modul = 'BANK STATEMENT' and journal_date < '$filter_from'
+        GROUP BY account_number");
+
+        $datas = array();
+        $coa_original = (@$account_coa->original_debit - @$account_coa->original_kredit);
+        $coa_local = (@$account_coa->local_debit - @$account_coa->local_kredit);
+        $ar_begin_local = @$ar_receipt_begin[0]->local_begin;
+        $ar_begin_original = @$ar_receipt_begin[0]->original_begin;
+        $ap_begin_local = @$ap_payment_begin[0]->local_begin;
+        $ap_begin_original = @$ap_payment_begin[0]->original_begin;
+        $journal_begin_original = @$journal_posting_begin[0]->original_begin;
+        $journal_begin_local = @$journal_posting_begin[0]->local_begin;
+        $adj_begin_original = @$journal_adj_begin[0]->original_begin;
+        $adj_begin_local = @$journal_adj_begin[0]->local_begin;
+
+        while ($time_start <= $time_to) {
+            $trans_date = $time_start->format('Y-m-d');
+            $ar_receipts = $this->crud->query("SELECT a.*, c.description as description2, b.currency, c.number as gl_no
+                FROM ar_receipt_journals a 
+                JOIN ar_receipts b ON a.receipt_no = b.receipt_no 
+                LEFT JOIN journal_postings c ON b.receipt_no = c.document_no
+                WHERE b.receipt_date = '$trans_date' and a.account_number = '$filter_account' 
+                GROUP BY a.receipt_no, a.account_number, a.description");
+
+            $ap_payments = $this->crud->query("SELECT a.*, c.description, b.currency, c.number as gl_no
+                FROM ap_payment_journals a 
+                JOIN ap_payments b ON a.payment_no = b.payment_no 
+                LEFT JOIN journal_postings c ON b.payment_no = c.document_no
+                WHERE b.payment_date = '$trans_date' and a.account_number = '$filter_account' 
+                GROUP BY a.payment_no, a.account_number");
+
+            $journal_adjustments = $this->crud->query("SELECT `number`, document_no, `description`, currency, rates,
+                    (CASE WHEN SUM(original_credit) > 0 THEN SUM(original_credit) ELSE 0 END) as original_credit,
+                    (CASE WHEN SUM(original_debit) > 0 THEN SUM(original_debit) ELSE 0 END) as original_debit,
+                    (CASE WHEN SUM(local_credit) > 0 THEN SUM(local_credit) ELSE 0 END) as local_credit,
+                    (CASE WHEN SUM(local_debit) > 0 THEN SUM(local_debit) ELSE 0 END) as local_debit
+                FROM journal_postings
+                WHERE account_number = '$filter_account' and modul = 'ADJUSTMENT' and journal_date = '$trans_date'
+                GROUP BY `number`");
+                
+            $journal_postings = $this->crud->query("SELECT `number`, document_no, `description`, currency, rates,
+                    (CASE WHEN SUM(original_credit) > 0 THEN SUM(original_credit) ELSE 0 END) as original_debit,
+                    (CASE WHEN SUM(original_debit) > 0 THEN SUM(original_debit) ELSE 0 END) as original_credit,
+                    (CASE WHEN SUM(local_credit) > 0 THEN SUM(local_credit) ELSE 0 END) as local_debit,
+                    (CASE WHEN SUM(local_debit) > 0 THEN SUM(local_debit) ELSE 0 END) as local_credit
+                FROM journal_postings
+                WHERE account_number = '$filter_account' and modul = 'BANK STATEMENT' and journal_date = '$trans_date'
+                GROUP BY `number`");
+            
+            foreach ($ar_receipts as $ar_receipt) {
+                $ar_original_balance = ($coa_original + $ar_begin_original + $ap_begin_original + $journal_begin_original + $adj_begin_original + $ar_receipt->debit - $ar_receipt->credit);
+                $ar_local_balance = ($coa_local + $ar_begin_local + $ap_begin_local + $journal_begin_local + $adj_begin_local + $ar_receipt->local_debit - $ar_receipt->local_credit);
+
+                $datas[] = array(
+                    "trans_date" => $trans_date,
+                    "document_no" => $ar_receipt->receipt_no,
+                    "gl_no" => $ar_receipt->gl_no,
+                    "description" => $ar_receipt->description . " | " . $ar_receipt->description2,
+                    "currency" => $ar_receipt->currency,
+                    "original_debit" => $ar_receipt->debit,
+                    "original_credit" => $ar_receipt->credit,
+                    "original_balance" => $ar_original_balance,
+                    "rate" => (($ar_receipt->local_debit + $ar_receipt->local_credit) / ($ar_receipt->debit + $ar_receipt->credit)),
+                    "local_debit" => $ar_receipt->local_debit,
+                    "local_credit" => $ar_receipt->local_credit,
+                    "local_balance" => $ar_local_balance,
+                );
+
+                $coa_original = 0;
+                $coa_local = 0;
+                $ap_begin_original = 0;
+                $ap_begin_local = 0;
+                $journal_begin_local = 0;
+                $ar_begin_original = $ar_original_balance;
+                $ar_begin_local = $ar_local_balance;
+            }
+
+            foreach ($ap_payments as $ap_payment) {
+                $ap_original_balance = ($coa_original + $ar_begin_original + $ap_begin_original + $ap_payment->debit - $ap_payment->credit);
+                $ap_local_balance = ($coa_local + $ar_begin_local + $ap_begin_local + $journal_begin_local + $adj_begin_local + $ap_payment->local_debit - $ap_payment->local_credit);
+
+                $datas[] = array(
+                    "trans_date" => $trans_date,
+                    "document_no" => $ap_payment->payment_no,
+                    "gl_no" => $ap_payment->gl_no,
+                    "description" => $ap_payment->description,
+                    "currency" => $ap_payment->currency,
+                    "original_debit" => $ap_payment->debit,
+                    "original_credit" => $ap_payment->credit,
+                    "original_balance" => $ap_original_balance,
+                    "rate" => (($ap_payment->local_debit + $ap_payment->local_credit) / ($ap_payment->debit + $ap_payment->credit)),
+                    "local_debit" => $ap_payment->local_debit,
+                    "local_credit" => $ap_payment->local_credit,
+                    "local_balance" => $ap_local_balance,
+                );
+
+                $coa_original = 0;
+                $coa_local = 0;
+                $journal_begin_local = 0;
+                $ap_begin_original = $ap_original_balance;
+                $ap_begin_local = $ap_local_balance;
+                $ar_begin_original = 0;
+                $ar_begin_local = 0;
+            }
+
+            foreach ($journal_adjustments as $journal_adjustment) {
+                $ap_original_balance = ($coa_original + $ar_begin_original + $ap_begin_original + $journal_adjustment->original_debit - $journal_adjustment->original_credit);
+                $ap_local_balance = ($coa_local + $ar_begin_local + $ap_begin_local + $journal_begin_local + $adj_begin_local + $journal_adjustment->local_debit - $journal_adjustment->local_credit);
+
+                $datas[] = array(
+                    "trans_date" => $trans_date,
+                    "document_no" => $journal_adjustment->document_no,
+                    "gl_no" => $journal_adjustment->number,
+                    "description" => $journal_adjustment->description,
+                    "currency" => $journal_adjustment->currency,
+                    "original_debit" => $journal_adjustment->original_debit,
+                    "original_credit" => $journal_adjustment->original_credit,
+                    "original_balance" => $ap_original_balance,
+                    "rate" => 1,
+                    "local_debit" => $journal_adjustment->local_debit,
+                    "local_credit" => $journal_adjustment->local_credit,
+                    "local_balance" => $ap_local_balance,
+                );
+
+                $coa_original = 0;
+                $coa_local = 0;
+                $ap_begin_original = $ap_original_balance;
+                $ap_begin_local = $ap_local_balance;
+                $ar_begin_original = 0;
+                $ar_begin_local = 0;
+            }
+
+            foreach ($journal_postings as $journal_posting) {
+                $ap_original_balance = ($coa_original + $ar_begin_original + $ap_begin_original + $journal_posting->original_debit - $journal_posting->original_credit);
+                $ap_local_balance = ($coa_local + $ar_begin_local + $ap_begin_local + $journal_begin_local + $adj_begin_local + $journal_posting->local_debit - $journal_posting->local_credit);
+
+                $datas[] = array(
+                    "trans_date" => $trans_date,
+                    "document_no" => $journal_posting->document_no,
+                    "gl_no" => $journal_posting->number,
+                    "description" => $journal_posting->description,
+                    "currency" => $journal_posting->currency,
+                    "original_debit" => $journal_posting->original_debit,
+                    "original_credit" => $journal_posting->original_credit,
+                    "original_balance" => $ap_original_balance,
+                    "rate" => 1,
+                    "local_debit" => $journal_posting->local_debit,
+                    "local_credit" => $journal_posting->local_credit,
+                    "local_balance" => $ap_local_balance,
+                );
+
+                $coa_original = 0;
+                $coa_local = 0;
+                $ap_begin_original = $ap_original_balance;
+                $ap_begin_local = $ap_local_balance;
+                $ar_begin_original = 0;
+                $ar_begin_local = 0;
+            }
+
+            $ar_begin_original = $ar_begin_original;
+            $ar_begin_local = $ar_begin_local;
+            $ap_begin_original = $ap_begin_original;
+            $ap_begin_local = $ap_begin_local;
+
+            $time_start->modify('+1 day');
+        }
 
         $account = $this->crud->read('account_coa', [], ["account_number" => $filter_account]);
 
-        $query_begin = $this->db->query("SELECT (SUM(local_debit) - SUM(local_credit)) AS local_begin, (SUM(original_debit) - SUM(original_credit)) AS original_begin FROM (
-                SELECT original_debit, original_kredit AS original_credit, local_debit, local_kredit AS local_credit
-                FROM account_coa WHERE account_number = '$filter_account'
-            UNION ALL
-            SELECT 
-                SUM(a.debit) AS original_debit, SUM(a.credit) AS original_credit, SUM(a.local_debit) AS local_debit, SUM(a.local_credit) AS local_credit
-                FROM ar_receipt_journals a 
-                JOIN (select receipt_date, receipt_no, currency from ar_receipts GROUP BY receipt_no) b ON a.receipt_no = b.receipt_no 
-                WHERE b.receipt_date < '$filter_from' AND a.account_number = '$filter_account' 
-                GROUP BY a.receipt_no, a.account_number
-            UNION ALL
-                SELECT SUM(a.debit) AS original_debit, SUM(a.credit) AS original_credit, SUM(a.local_debit) AS local_debit, SUM(a.local_credit) AS local_credit
-                FROM ap_payment_journals a 
-                JOIN (select payment_date, payment_no, currency from ap_payments GROUP BY payment_no) b ON a.payment_no = b.payment_no 
-                WHERE b.payment_date < '$filter_from' AND a.account_number = '$filter_account' 
-                GROUP BY a.payment_no, a.account_number
-            UNION ALL
-                SELECT 
-                (CASE WHEN SUM(original_debit) > 0 THEN SUM(original_debit) ELSE 0 END) AS original_debit,
-                (CASE WHEN SUM(original_credit) > 0 THEN SUM(original_credit) ELSE 0 END) AS original_credit,
-                (CASE WHEN SUM(local_debit) > 0 THEN SUM(local_debit) ELSE 0 END) AS local_debit,
-                (CASE WHEN SUM(local_credit) > 0 THEN SUM(local_credit) ELSE 0 END) AS local_credit
-                FROM journal_postings
-                WHERE account_number = '$filter_account' AND modul = 'ADJUSTMENT' AND journal_date < '$filter_from'
-                GROUP BY `number`
-            UNION ALL
-                SELECT
-                (CASE WHEN SUM(original_credit) > 0 THEN SUM(original_credit) ELSE 0 END) AS original_debit,
-                (CASE WHEN SUM(original_debit) > 0 THEN SUM(original_debit) ELSE 0 END) AS original_credit,
-                (CASE WHEN SUM(local_credit) > 0 THEN SUM(local_credit) ELSE 0 END) AS local_debit,
-                (CASE WHEN SUM(local_debit) > 0 THEN SUM(local_debit) ELSE 0 END) AS local_credit
-                FROM journal_postings
-                WHERE account_number = '$filter_account' AND modul = 'BANK STATEMENT' AND journal_date < '$filter_from'
-                GROUP BY `number`
-        ) z
-        ");
-        $data_begin = $query_begin->row_array();
+        $coa_original = (@$account_coa->original_debit - @$account_coa->original_kredit);
+        $coa_local = (@$account_coa->local_debit - @$account_coa->local_kredit);
+        $ar_begin_local = @$ar_receipt_begin[0]->local_begin;
+        $ar_begin_original = @$ar_receipt_begin[0]->original_begin;
+        $ap_begin_local = @$ap_payment_begin[0]->local_begin;
+        $ap_begin_original = @$ap_payment_begin[0]->original_begin;
+        $journal_begin_original = @$journal_posting_begin[0]->original_begin;
+        $journal_begin_local = @$journal_posting_begin[0]->local_begin;
+        $adj_begin_original = @$journal_adj_begin[0]->original_begin;
+        $adj_begin_local = @$journal_adj_begin[0]->local_begin;
 
-        $query_posting = $this->db->query("SELECT number, document_no, description FROM journal_postings WHERE modul IN ('AP PAYMENT', 'AR RECEIPT') GROUP BY number, document_no");
-        $data_postings = $query_posting->result_array();
-        $arrPosting = [];
-        foreach ($data_postings as $data_posting) {
-            $arrPosting['number'][$data_posting['document_no']] = $data_posting['number'];
-            $arrPosting['description'][$data_posting['document_no']] = $data_posting['description'];
-        }
-
-        $query_banks = $this->db->query("SELECT distinct number, journal_date, document_no, description FROM journal_postings WHERE modul IN ('BANK STATEMENT') and account_number = '$filter_account' and journal_date between '$filter_from' and '$filter_to'");
-        $data_banks = $query_banks->result_array();
-        $arrBank = [];
-        $arrBank2 = [];
-        $arrBankDate = [];
-        $arrBankDate2 = [];
-        foreach ($data_banks as $data_bank) {
-            // $rawKey = str_replace(['"', "'"], '', $data_bank['description']);
-            $explode = explode("|", $data_bank['description']);
-            $rawKey = trim(@$explode[3]);
-            
-            $arrBank[$rawKey] = $data_bank['number'];
-            $arrBankDate[$rawKey] = $data_bank['journal_date'];
-            
-            $arrBank2[trim($data_bank['document_no'])] = $data_bank['number'];
-            $arrBankDate2[trim($data_bank['document_no'])] = $data_bank['journal_date'];
-        }
-
-        // die(json_encode($arrBank));
-
-        $query_detail = $this->db->query("SELECT * FROM (
-                SELECT 
-                b.receipt_date as trans_date, b.receipt_no as document_no, 'TERPISAH' as gl_no, a.description, b.currency, SUM(a.debit) as original_debit, SUM(a.credit) as original_credit, SUM(a.local_debit) as local_debit, SUM(a.local_credit) as local_credit
-                FROM ar_receipt_journals a 
-                JOIN (select receipt_date, receipt_no, currency from ar_receipts GROUP BY receipt_no) b ON a.receipt_no = b.receipt_no
-                WHERE b.receipt_date between '$filter_from' and '$filter_to' and a.account_number = '$filter_account' 
-                GROUP BY a.receipt_no, a.account_number
-            UNION ALL
-                SELECT b.payment_date as trans_date, b.payment_no as document_no, 'TERPISAH' as gl_no, a.description, b.currency, SUM(a.debit) as original_debit, SUM(a.credit) as original_credit, SUM(a.local_debit) as local_debit, SUM(a.local_credit) as local_credit
-                FROM ap_payment_journals a 
-                JOIN (select payment_date, payment_no, currency from ap_payments GROUP BY payment_no) b ON a.payment_no = b.payment_no
-                WHERE b.payment_date between '$filter_from' and '$filter_to' and a.account_number = '$filter_account' 
-                GROUP BY a.payment_no, a.account_number
-            UNION ALL
-                SELECT journal_date as trans_date, document_no, `number` as gl_no, `description`, currency,
-                (CASE WHEN SUM(original_debit) > 0 THEN SUM(original_debit) ELSE 0 END) as original_debit,
-                (CASE WHEN SUM(original_credit) > 0 THEN SUM(original_credit) ELSE 0 END) as original_credit,
-                (CASE WHEN SUM(local_debit) > 0 THEN SUM(local_debit) ELSE 0 END) as local_debit,
-                (CASE WHEN SUM(local_credit) > 0 THEN SUM(local_credit) ELSE 0 END) as local_credit
-                FROM journal_postings
-                WHERE account_number = '$filter_account' and modul = 'ADJUSTMENT' and journal_date between '$filter_from' and '$filter_to'
-                GROUP BY `number`
-            UNION ALL
-                SELECT journal_date as trans_date, document_no, `number` as gl_no, `description`, currency,
-                (CASE WHEN SUM(original_credit) > 0 THEN SUM(original_credit) ELSE 0 END) AS original_debit,
-                (CASE WHEN SUM(original_debit) > 0 THEN SUM(original_debit) ELSE 0 END) AS original_credit,
-                (CASE WHEN SUM(local_credit) > 0 THEN SUM(local_credit) ELSE 0 END) AS local_debit,
-                (CASE WHEN SUM(local_debit) > 0 THEN SUM(local_debit) ELSE 0 END) AS local_credit
-                FROM journal_postings
-                WHERE account_number = '$filter_account' and modul = 'BANK STATEMENT' and journal_date between '$filter_from' and '$filter_to'
-                GROUP BY journal_date, `number`) z
-            ORDER BY trans_date asc
-        ");
-        $data_details = $query_detail->result_array();
-
-        $datas = [];
-        foreach ($data_details as $data_detail) {
-            $original_balance = ($data_detail['original_debit'] - $data_detail['original_credit']);
-            $local_balance = ($data_detail['local_debit'] - $data_detail['local_credit']);
-
-            if($data_detail['gl_no'] == "TERPISAH"){
-                $gl_no = @$arrPosting['number'][$data_detail['document_no']];
-                $description = @$arrPosting['description'][$data_detail['document_no']];
-            }else{
-                $gl_no = $data_detail['gl_no'];
-                $description = $data_detail['description'];
-            }
-
-            if(empty(@$arrBank[trim($gl_no)])){
-                $pb_no = @$arrBank2[trim($data_detail['document_no'])];
-                $pb_date = @$arrBankDate2[trim($data_detail['document_no'])];
-            }else{
-                $pb_no = @$arrBank[trim($gl_no)];
-                $pb_date = @$arrBankDate[trim($gl_no)];
-            }
-
-            if($pb_no == ""){
-                $pb_status = "OPEN";
-            }else{
-                $pb_status = "CLOSE";
-            }
-
-            $datas[] = array(
-                "trans_date" => $data_detail['trans_date'],
-                "document_no" => $data_detail['document_no'],
-                "gl_no" => $gl_no,
-                "description" => $description,
-                "pb_no" => $pb_no,
-                "pb_date" => $pb_date,
-                "pb_status" => $pb_status,
-                "currency" => $data_detail['currency'],
-                "original_debit" => $data_detail['original_debit'],
-                "original_credit" => $data_detail['original_credit'],
-                "original_balance" => $original_balance,
-                // "rate" => (($data_detail['local_debit'] + $data_detail['local_credit']) / ($data_detail['original_debit'] + $data_detail['original_credit'])),
-                "local_debit" => $data_detail['local_debit'],
-                "local_credit" => $data_detail['local_credit'],
-                "local_balance" => $local_balance,
-            );
-        }
+        $opening_balance_original = ($coa_original + $ar_begin_original + $ap_begin_original + $journal_begin_original + $adj_begin_original);
+        $opening_balance_local = ($coa_local + $ar_begin_local + $ap_begin_local + $journal_begin_local + $adj_begin_local);
 
         //Config
         $this->db->select('*');
@@ -252,9 +310,6 @@ class Report_bank_statements extends CI_Controller
                 <th rowspan="2">Trans Date</th>
                 <th rowspan="2">Document No</th>
                 <th rowspan="2">GL No</th>
-                <th rowspan="2">PB No</th>
-                <th rowspan="2">PB Date</th>
-                <th rowspan="2">PB Status</th>
                 <th rowspan="2">Description</th>
                 <th rowspan="2">Currency</th>
                 <th colspan="4">Local Currency</th>
@@ -271,15 +326,12 @@ class Report_bank_statements extends CI_Controller
                             <td>' . $filter_from . '</td>
                             <td></td>
                             <td></td>
-                            <td></td>
-                            <td></td>
-                            <td></td>
                             <td>OPENING BALANCE</td>
                             <td></td>
                             <td style="text-align:right;font-weight:bold;"></td>
                             <td style="text-align:right;font-weight:bold;"></td>
                             <td style="text-align:right;font-weight:bold;"></td>
-                            <td style="text-align:right;font-weight:bold;">' . number_format($data_begin['local_begin'], 2) . '</td>
+                            <td style="text-align:right;font-weight:bold;">' . number_format($opening_balance_local, 2) . '</td>
                         </tr>';
 
         $no = 1;
@@ -287,23 +339,14 @@ class Report_bank_statements extends CI_Controller
         $grand_total_credit_original = 0;
         $grand_total_debit_local = 0;
         $grand_total_credit_local = 0;
-        $local_balance = $data_begin['local_begin'];
+        $local_balance = $opening_balance_local;
         foreach ($datas as $data) {
-            if($data['pb_status'] == "OPEN"){
-                $pb_status = "<b style='color:green'>".$data['pb_status']."</b>";
-            }else{
-                $pb_status = "<b style='color:red'>".$data['pb_status']."</b>";
-            }
-
             $local_balance += ($data['local_debit'] - $data['local_credit']);
             $html .= '  <tr>
                             <td style="text-align:center">'.$no.'</td>
                             <td>' . $data['trans_date'] . '</td>
                             <td>' . $data['document_no'] . '</td>
                             <td>' . $data['gl_no'] . '</td>
-                            <td>' . $data['pb_no'] . '</td>
-                            <td>' . $data['pb_date'] . '</td>
-                            <td>' . $pb_status . '</td>
                             <td>' . $data['description'] . '</td>
                             <td>INR</td>
                             <td style="text-align:right;font-weight:bold;">1.00</td>
@@ -321,9 +364,6 @@ class Report_bank_statements extends CI_Controller
         $html .= '  <tr style="background:#EBEBEB;">
                         <td></td>
                         <td><b>GRAND TOTAL</b></td>
-                        <td></td>
-                        <td></td>
-                        <td></td>
                         <td></td>
                         <td></td>
                         <td></td>

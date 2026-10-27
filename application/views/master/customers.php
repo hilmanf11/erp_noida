@@ -53,7 +53,7 @@
                 </div>
                 <div class="fitem">
                     <span style="width:35%; display:inline-block;">Customer Code</span>
-                    <input style="width:60%;" name="number" id="number" class="easyui-validatebox" data-options="required:true,validType:'length[2,2]'">
+                    <input style="width:60%;" name="number" id="number" required="" class="easyui-textbox">
                 </div>
                 <div class="fitem">
                     <span style="width:35%; display:inline-block;">Line ID</span>

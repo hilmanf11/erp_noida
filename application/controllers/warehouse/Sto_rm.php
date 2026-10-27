@@ -31,39 +31,6 @@ class Sto_rm extends CI_Controller
         }
     }
 
-    public function readEndingStock($item_rm_id)
-    {
-        // if ($this->input->post()) {
-        $date = date("Y-m-d");
-
-        $records = $this->crud->query("SELECT
-                a.id,
-                ((COALESCE(SUM(c.qty_sto),0) + COALESCE(dd.sto_qty_in, 0) + COALESCE(j.qty_rgp_in, 0) + COALESCE(e.qty_receipt, 0) + COALESCE(g.return_qty, 0)) - COALESCE(f.qty, 0) - COALESCE(d.sto_qty_out, 0) - COALESCE(k.qty_rgp_out, 0) - COALESCE(h.qty_reject, 0)) AS end_stock
-                FROM item_rm a 
-                JOIN item_familys b ON a.item_family_id = b.id AND b.number != '006'
-                LEFT JOIN (SELECT a.item_rm_id, COALESCE(SUM(b.qty), 0) AS qty_sto FROM os_rm a JOIN scan_item_receipts b ON a.id  = b.receipt_id WHERE a.trans_date <= '$date' GROUP BY item_rm_id) c ON a.id = c.item_rm_id
-                LEFT JOIN (SELECT a.item_rm_id, COALESCE(SUM(a.qty), 0) as sto_qty_out FROM sto_rm a WHERE a.type = 'OUT' and a.trans_date <= '$date' and a.approved_to = '' GROUP BY item_rm_id) d ON a.id = d.item_rm_id
-                LEFT JOIN (SELECT a.item_rm_id, COALESCE(SUM(a.qty), 0) as sto_qty_in FROM sto_rm a WHERE a.type = 'IN' and a.trans_date <= '$date' and a.approved_to = '' GROUP BY item_rm_id) dd ON a.id = dd.item_rm_id
-                LEFT JOIN (SELECT a.item_rm_id, COALESCE(SUM(b.qty), 0) AS qty_receipt FROM purchase_order_receipts a JOIN scan_item_receipts b ON a.receipt_id  = b.receipt_id WHERE DATE_FORMAT(b.created_date, '%Y-%m-%d') <= '$date' GROUP BY item_rm_id) e ON a.id = e.item_rm_id
-                LEFT JOIN (SELECT item_rm_id, COALESCE(SUM(qty), 0) AS qty FROM issued_material_details WHERE DATE_FORMAT(created_date, '%Y-%m-%d') <= '$date' GROUP BY item_rm_id) f ON a.id = f.item_rm_id
-                LEFT JOIN (SELECT a.item_rm_id, COALESCE(SUM(b.qty), 0) AS qty_reject FROM purchase_order_receipts a JOIN scan_item_rejections b ON a.receipt_id  = b.receipt_id WHERE DATE_FORMAT(b.created_date, '%Y-%m-%d') <= '$date' GROUP BY item_rm_id) h ON a.id = h.item_rm_id
-                LEFT JOIN (SELECT a.item_id, COALESCE(SUM(b.qty), 0) as qty_rgp_in FROM rgp_transactions a JOIN scan_item_rgp b ON a.number = b.rgp_number and a.item_id = b.item_id WHERE a.type = 'IN' and a.transaction_date <= '$date' GROUP BY a.item_id) j ON a.id = j.item_id
-                LEFT JOIN (SELECT a.item_id, COALESCE(SUM(b.qty), 0) as qty_rgp_out FROM rgp_transactions a JOIN scan_item_rgp b ON a.number = b.rgp_number and a.item_id = b.item_id WHERE a.type = 'OUT' and a.transaction_date <= '$date' GROUP BY a.item_id) k ON a.id = k.item_id
-                LEFT JOIN (SELECT a.item_rm_id, SUM(c.qty) AS return_qty
-                FROM return_materials a 
-                JOIN return_material_labels b ON a.return_id = b.return_id
-                JOIN scan_item_receipts c ON a.return_id = c.receipt_id AND b.label_no = c.label_no
-                WHERE a.return_date <= '$date'
-                GROUP BY a.item_rm_id) g ON a.id = g.item_rm_id
-                WHERE a.id = '$item_rm_id'
-                GROUP BY a.id
-                ORDER BY b.number, a.number
-            ");
-
-        return empty(@$records[0]->end_stock) ? 0 : @$records[0]->end_stock;
-        // }
-    }
-
     //GET DATA
     public function reads()
     {
@@ -99,17 +66,17 @@ class Sto_rm extends CI_Controller
             $this->db->join('item_categories c', 'b.item_category_id = c.id');
             $this->db->join('item_familys d', 'b.item_family_id = d.id');
             $this->db->join('supplier_items e', 'a.item_rm_id = e.item_rm_id', 'left');
-            if ($filter_from != "" && $filter_to != "") {
+            if($filter_from != "" && $filter_to != ""){
                 $this->db->where('a.trans_date >=', $filter_from);
                 $this->db->where('a.trans_date <=', $filter_to);
             }
-            if ($filter_category != "") {
+            if($filter_category != ""){
                 $this->db->like('c.id', $filter_category);
             }
-            if ($filter_product_family != "") {
+            if($filter_product_family != ""){
                 $this->db->like('d.id', $filter_product_family);
             }
-            if ($filter_item_rm != "") {
+            if($filter_item_rm != ""){
                 $this->db->like('b.id', $filter_item_rm);
             }
             $this->db->group_by('a.id');
@@ -147,13 +114,7 @@ class Sto_rm extends CI_Controller
                 $autoID = sprintf("%04s", $urutan);
             }
 
-            if ($post['type'] == "OUT") {
-                if ((round($this->readEndingStock($post['item_rm_id'])) - round($post['qty'])) < 0) {
-                    die(json_encode(array("title" => "Stock Empty", "message" => "Stock In Warehouse is Empty", "theme" => "error")));
-                }
-            }
-
-            $document_no = "STO-" . $datenow . "-" . $post['type'] . "-" . $autoID;
+            $document_no = "STO-" . $datenow ."-" . $post['type'] . "-" . $autoID;
 
             $send = $this->crud->create('sto_rm', array_merge($post, array("document_no" => $document_no)));
             echo $send;
@@ -257,19 +218,13 @@ class Sto_rm extends CI_Controller
                 $autoID = sprintf("%04s", $urutan);
             }
 
-            if ($data['type'] == "OUT") {
-                if ((round($this->readEndingStock($data['item_rm_id'])) - round($data['qty'])) < 0) {
-                    die(json_encode(array("title" => "Stock Empty", "message" => "Part No EBWS " . $data['item_rm_id'] . " Stock In Warehouse is Empty", "theme" => "error")));
-                }
-            }
-
-            $document_no = "STO-" . $datenow . "-" . $data['type'] . "-" . $autoID;
+            $document_no = "STO-" . $datenow ."-" . $data['type'] . "-" . $autoID;
 
             $item_rm = $this->crud->read('item_rm', [], ["id" => $data['item_rm_id']]);
 
-            if (empty($item_rm->id)) {
+            if(empty($item_rm->id)){
                 echo json_encode(array("title" => "Not Found", "message" => "Part No EBWS " . $data['item_rm_id'] . " is Not Found", "theme" => "error"));
-            } elseif (!in_array($data['type'], array("IN", "OUT"))) {
+            }elseif(!in_array($data['type'], array("IN","OUT"))){
                 echo json_encode(array("title" => "Not Found", "message" => "Type " . $data['type'] . " is Not IN/OUT", "theme" => "error"));
             } else {
                 $dataFinal = array(
@@ -314,7 +269,7 @@ class Sto_rm extends CI_Controller
         $this->db->join('item_categories c', 'b.item_category_id = c.id');
         $this->db->join('item_familys d', 'b.item_family_id = d.id');
         // $this->db->join('item_family_subs e', 'b.item_sub_family_id = e.id');
-        if ($filter_from != "" && $filter_to != "") {
+        if($filter_from != "" && $filter_to != ""){
             $this->db->where('a.trans_date >=', $filter_from);
             $this->db->where('a.trans_date <=', $filter_to);
         }
@@ -325,7 +280,7 @@ class Sto_rm extends CI_Controller
         $this->db->order_by('a.trans_date', 'DESC');
         $records = $this->db->get()->result_array();
 
-        $html = '<html><head><title>Print Data</title></head><style>body {font-family: Arial, Helvetica, sans-serif;}#sto_rm {border-collapse: collapse;width: 100%;font-size: 12px;}#sto_rm td, #sto_rm th {border: 1px solid #ddd;padding: 2px;}#sto_rm tr:nth-child(even){background-color: #f2f2f2;}#sto_rm tr:hover {background-color: #ddd;}#sto_rm th {padding-top: 2px;padding-bottom: 2px;text-align: left;color: black;}</style><body>
+            $html = '<html><head><title>Print Data</title></head><style>body {font-family: Arial, Helvetica, sans-serif;}#sto_rm {border-collapse: collapse;width: 100%;font-size: 12px;}#sto_rm td, #sto_rm th {border: 1px solid #ddd;padding: 2px;}#sto_rm tr:nth-child(even){background-color: #f2f2f2;}#sto_rm tr:hover {background-color: #ddd;}#sto_rm th {padding-top: 2px;padding-bottom: 2px;text-align: left;color: black;}</style><body>
             <center>
                 <div style="float: left; font-size: 12px; text-align: left;">
                     <table style="width: 100%;">
@@ -377,9 +332,9 @@ class Sto_rm extends CI_Controller
                     <th>Type</th>
                     <th>Qty</th>
                 </tr>';
-        $no = 1;
-        foreach ($records as $data) {
-            $html .= '<tr>
+            $no = 1;
+            foreach ($records as $data) {
+                $html .= '<tr>
                             <td>' . $no . '</td>
                             <td>' . $data['document_no'] . '</td>
                             <td style="mso-number-format:\@;">' . $data['item_rm_id'] . '</td>
@@ -391,9 +346,9 @@ class Sto_rm extends CI_Controller
                             <td>' . $data['type'] . '</td>
                             <td>' . number_format($data['qty']) . '</td>
                         </tr>';
-            $no++;
-        }
-        $html .= '</table></body></html>';
-        echo $html;
-    }
+                $no++;
+            }
+            $html .= '</table></body></html>';
+            echo $html;
+    }   
 }

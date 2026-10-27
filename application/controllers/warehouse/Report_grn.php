@@ -56,7 +56,6 @@ class Report_grn extends CI_Controller
             c.name as item_rm_name, 
             d.name as item_family_name, 
             c.uom,
-            e.total_scan_qty,
             g.scan_qty,
             g.scan_date,
             g.total_scan');
@@ -65,7 +64,6 @@ class Report_grn extends CI_Controller
         $this->db->join('item_rm c', 'a.item_rm_id = c.id');
         $this->db->join('item_familys d', 'c.item_family_id = d.id');
         $this->db->join("(SELECT receipt_id, DATE_FORMAT(created_date, '%Y-%m-%d') as scan_date, SUM(qty) as scan_qty, COUNT(id) as total_scan FROM scan_item_receipts GROUP BY receipt_id, DATE_FORMAT(created_date, '%Y-%m-%d')) g", 'g.receipt_id = a.receipt_id', 'left');
-        $this->db->join("(SELECT receipt_id, SUM(qty) as total_scan_qty FROM scan_item_receipts GROUP BY receipt_id) e", 'e.receipt_id = a.receipt_id', 'left');
         $this->db->where('a.deleted', 0);
         $this->db->where("a.status != 2");
         if ($filter_from != "" and $filter_to != "") {
@@ -144,19 +142,27 @@ class Report_grn extends CI_Controller
                 <th>Status</th>
             </tr>';
 
+        $receipt_id = "";
+        $total_scan = 0;
+        $arr = [];
+        foreach ($records as $data) {
+            if($receipt_id == $data['receipt_id']){
+                $receipt_id = $data['receipt_id'];
+                $total_scan += $data['total_scan'];
+            }else{
+                $receipt_id = $data['receipt_id'];
+                $total_scan = $data['total_scan'];
+            }
+
+            $arr[$receipt_id] = $total_scan;
+        }
+
         $no = 1;
         foreach ($records as $data) {
-            if($data['qty_receipt'] <= $data['total_scan_qty']){
-                if($data['qty_receipt'] <= $data['scan_qty']){
-                    $qty_scan = $data['qty_receipt'];
-                }else{
-                    $qty_scan = $data['scan_qty'];
-                }
-                
+            if($data['qty_label'] == $arr[$data['receipt_id']]){
                 $grn_no = "GRN".substr(@$data['receipt_no'], 3);
                 $status = "<b style='color:red;'>CLOSE</b>";
             }else{
-                $qty_scan = $data['scan_qty'];
                 $status = "<b style='color:green;'>OPEN</b>";
                 $grn_no = "-";
             }
@@ -173,7 +179,7 @@ class Report_grn extends CI_Controller
                             <td style="mso-number-format:\@;">' . $data['item_rm_number'] . '</td>
                             <td>' . $data['uom'] . '</td>
                             <td style="text-align:right">' . number_format($data['qty_receipt']) . '</td>
-                            <td style="text-align:right">' . number_format($qty_scan) . '</td>
+                            <td style="text-align:right">' . number_format($data['scan_qty']) . '</td>
                             <td style="text-align:right">' . number_format($data['qty_mpq']) . '</td>
                             <td style="text-align:right">' . number_format($data['qty_label']) . '</td>
                             <td style="text-align:right">' . number_format($data['total_scan']) . '</td>

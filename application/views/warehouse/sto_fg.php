@@ -63,11 +63,11 @@
             <legend><b>Form Data</b></legend>
             <div class="fitem">
                 <span style="width:35%; display:inline-block;">Trans Date</span>
-                <input style="width:60%;" name="trans_date" id="trans_date" value="<?= date("Y-m-d") ?>" class="easyui-datebox" readonly data-options="formatter:myformatter,parser:myparser, editable:false">
+                <input style="width:60%;" name="trans_date"  id="trans_date" value="<?= date("Y-m-d") ?>" class="easyui-datebox" data-options="formatter:myformatter,parser:myparser, editable:false">
             </div>
             <div class="fitem">
                 <span style="width:35%; display:inline-block;">Product No</span>
-                <input style="width:60%;" name="item_fg_id" id="item_fg_id" class="easyui-combogrid">
+                <input style="width:60%;" name="item_fg_id"  id="item_fg_id" class="easyui-combogrid">
             </div>
             <div class="fitem">
                 <span style="width:35%; display:inline-block;">Type</span>
@@ -157,7 +157,7 @@
                             },
                             error: function(jqXHR, textStatus, errorThrown) {
                                 toastr.error("This data is already used in other modules, You must delete it First", "Error");
-
+                                
                             },
                             complete: function(data) {
                                 $('#dg').datagrid('reload');
@@ -197,7 +197,7 @@
             clientPaging: false,
             remoteFilter: true,
             rownumbers: true,
-            fit: true
+            fit:true
         });
 
         $("#printout").contents().find('html').html("<center><br><br><br><b style='font-size:20px;'>Please Wait...</b></center>");
@@ -315,7 +315,7 @@
     });
 
     function cellFormatterApproval(val, row) {
-        if (val == "" || val == null) {
+        if(val == "" || val == null){
             return 'Approved';
         } else {
             return 'Checking';
@@ -352,7 +352,7 @@
     }
 
     function cellFormatterApproval(val, row) {
-        if (val == "" || val == null) {
+        if(val == "" || val == null){
             return 'Approved';
         } else {
             return 'Checking';
@@ -360,7 +360,7 @@
     };
 
     function cellStylerApproval(value, row, index) {
-        if (value == "" || value == null) {
+        if(value == "" || value == null){
             return 'background: #53D636; color:white;';
         } else {
             return 'background: #FF5F5F; color:white;';

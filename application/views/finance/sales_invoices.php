@@ -519,6 +519,7 @@
                     valueField: 'plant',
                     textField: 'plant',
                     prompt: "Choose Plant",
+                    editable: false,
                     onSelect: function(plant) {
                         $("#payment_term").numberbox("setValue", plant.payment_term);
                         var type = $('#type').combobox('getValue');
@@ -543,11 +544,11 @@
                                     var trans_date = $("#trans_date").datebox('getValue');
 
                                     if (trans_date != plant.delivery_note_date) {
-                                        toastr.error("Delivery note date dan Sales Invoice Date not same");
-                                        $("#dn_number").combobox('clear');
+                                        toastr.error("Delivery note date (" + plant.delivery_note_date + ") dan Sales Invoice Date (" + trans_date + ") not same");
                                         $("#plant").textbox('clear');
                                         $("#vehicle_no").textbox('clear');
                                         $("#taxes").numberbox("clear");
+                                        $("#dn_number").combobox('clear');
                                     } else {
                                         $("#plant").textbox('setValue', plant.plant);
                                         $("#vehicle_no").textbox('setValue', plant.vehicle_no);
@@ -561,6 +562,21 @@
                                 valueField: 'number',
                                 textField: 'number',
                                 prompt: "Choose FOC No",
+                                onSelect: function(plant) {
+                                    var trans_date = $("#trans_date").datebox('getValue');
+
+                                    if (trans_date != plant.approved_date) {
+                                        toastr.error("Approval date (FOC) (" + plant.approved_date + ") dan Sales Invoice Date (" + trans_date + ") not same");
+                                        $("#plant").textbox('clear');
+                                        $("#vehicle_no").textbox('clear');
+                                        $("#taxes").numberbox("clear");
+                                        $("#dn_number").combobox('clear');
+                                    } else {
+                                        $("#plant").textbox('setValue', plant.plant);
+                                        $("#vehicle_no").textbox('setValue', plant.vehicle_no);
+                                        $("#taxes").numberbox("setValue", 0);
+                                    }
+                                }
                             });
                         }
                     }
@@ -852,6 +868,11 @@
             var customer_id = $("#customer_id").combogrid('getValue');
             var plant = $("#plant").combobox('getValue');
             var dn_numberVal = $("#dn_number").combobox('getValue');
+
+            if (plant == "" || dn_numberVal == "" || customer_id == "" || type == "") {
+                toastr.info("Please Select Plant, Customer dan Delivery Note");
+                return false;
+            }
 
             $('#dg2').datagrid('appendRow', {
                 "action": 0
@@ -1704,11 +1725,6 @@
         if (row) {
             if (row.cancel > 0) {
                 toastr.error("Cannot Print Invoce because the status is cancel");
-                return false;
-            }
-
-            if (row.gl_no == null) {
-                toastr.error("Cannot Print Commercial Invoce because this Invoice not posted");
                 return false;
             }
 

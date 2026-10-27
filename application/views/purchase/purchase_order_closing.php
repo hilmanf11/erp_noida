@@ -18,8 +18,7 @@
             <th rowspan="2" data-options="field:'delivery_date',width:100,align:'center'">Delivery Date</th>
             <th rowspan="2" data-options="field:'revision',width:80,align:'center'">Revision</th>
             <th rowspan="2" data-options="field:'remarks',width:100,halign:'center'">Remarks</th>
-            <th rowspan="2" data-options="field:'terms',width:100,halign:'center',formatter:btnTerms">Terms<br>Condition</th>
-            <th rowspan="2" data-options="field:'status_is', width:100,halign:'center',formatter:BtnStatus">Status</th>
+            <!-- <th rowspan="2" data-options="field:'terms',width:100,halign:'center',formatter:btnTerms">Terms<br>Condition</th> -->
             <th rowspan="2" data-options="field:'attachment',width:80,align:'center',formatter: btnDetails">Attachment</th>
             <th colspan="3" data-options="field:'',width:100,halign:'center'">Approved</th>
             <th colspan="2" data-options="field:'',width:100,halign:'center'"> Created</th>
@@ -155,6 +154,14 @@
             <div class="fitem">
                 <span style="width:35%; display:inline-block;">Delivery Date</span>
                 <input style="width:28%;" name="delivery_date" class="easyui-datebox" data-options="formatter:myformatter,parser:myparser, editable:false">
+            </div>
+            <div class="fitem">
+                <span style="width:35%; display:inline-block;">Before Qty</span>
+                <input style="width:40%;" name="bf_qty" id="bf_qty" class="easyui-numberbox" readonly>
+            </div>
+            <div class="fitem">
+                <span style="width:35%; display:inline-block;">POR Qty</span>
+                <input style="width:40%;" name="por_qty" id="por_qty" class="easyui-numberbox" readonly>
             </div>
             <div class="fitem">
                 <span style="width:35%; display:inline-block;">Qty</span>
@@ -319,7 +326,7 @@
 
     function readPo() {
         $("#filter_suppliers").combogrid({
-            url: '<?php echo base_url('master/suppliers/reads'); ?>',
+            url: '<?php echo base_url('master/supplier_items/readSuppliers'); ?>',
             panelWidth: 500,
             idField: 'id',
             textField: 'name',
@@ -1103,6 +1110,14 @@
                 text: 'Send to Approval',
                 iconCls: 'icon-ok',
                 handler: function() {
+                    var por_qty = $("#por_qty").numberbox('getValue');
+                    var qty = $("#qty").numberbox('getValue');
+
+                    if (parseInt(por_qty) >= parseInt(qty)) {
+                        toastr.error("POR qty > Qty PO");
+                        return false;
+                    }
+
                     $('#frm_update').form('submit', {
                         url: '<?= base_url('purchase/purchase_order_closing/update') ?>',
                         onSubmit: function() {
@@ -1307,46 +1322,5 @@
                 return '-';
             }
         }
-    }
-
-    function BtnStatus(val, row) {
-        if (row.state == "closed") {
-            return '-';
-        } else {
-            if (row.status == 0) {
-                var details = "statusChange('" + row.id + "','" + row.status + "')";
-                return '<a class="btn btn-success w-100" style="pointer-events: visible; opacity:1;" onClick="' + details + '">OPEN</a>';
-                // return '<a class="btn btn-success w-100" style="pointer-events: visible; opacity:1;">OPEN</a>';
-            } else if (row.status == 1) {
-                var details = "statusChange('" + row.id + "','" + row.status + "')";
-                return '<a class="btn btn-danger w-100" style="pointer-events: visible; opacity:1;" onClick="' + details + '">CLOSE</a>';
-                // return '<a class="btn btn-danger w-100" style="pointer-events: visible; opacity:1;">CLOSE</a>';
-            }
-        }
-    }
-
-    function statusChange(id, sts) {
-        $.messager.prompt('Password!!', 'Change Status Purchase Orders', function(r) {
-            if (r == "CHANGE") {
-                $.ajax({
-                    type: "post",
-                    url: "<?= base_url('purchase/purchase_orders/updateStatus') ?>",
-                    data: {
-                        id: id,
-                        status: sts
-                    },
-                    dataType: "json",
-                    success: function(result) {
-                        if (result.theme == "success") {
-                            toastr.success(result.message, result.title);
-                        } else {
-                            toastr.error(result.message, result.title);
-                        }
-
-                        $("#dg").treegrid('reload');
-                    }
-                });
-            }
-        });
     }
 </script>

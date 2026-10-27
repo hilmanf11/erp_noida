@@ -1144,7 +1144,7 @@ class Rgp_out extends CI_Controller
 
         $rgp_transactions = $this->crud->read("rgp_transactions", [], ["number" => $number]);
         $customers = $this->crud->read("customers", [], ["id" => @$rgp_transactions->company_id]);
-        $customer_address = $this->crud->read("customer_address", [], ["plant" => @$rgp_transactions->plant, "customer_id" => @$rgp_transactions->company_id]);
+        $customer_address = $this->crud->read("customer_address", [], ["plant" => @$rgp_transactions->plant]);
         if (!empty(@$customers->name)) {
             $company_name = @$customers->name;
             $company_address = @$customer_address->ship_address;

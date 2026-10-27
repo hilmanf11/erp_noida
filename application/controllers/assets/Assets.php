@@ -71,22 +71,7 @@ class Assets extends CI_Controller
             WHERE a.request_no = '$request_no' and (a.asset_code = '' or a.asset_code is null or a.asset_code = '-')
             ORDER BY a.request_no");
         $datas = $sql->result_array();
-
-        $sql2 = $this->db->query("SELECT a.*, '-' as item_rm_id, a.item_name as item_rm_number, c.name as item_family_name
-            FROM purchase_request_services a
-            JOIN item_familys c ON a.item_family_id = c.id
-            JOIN item_categories b ON c.item_category_id = b.id
-            WHERE a.request_no = '$request_no' and b.type = 'ASSET'
-            ORDER BY a.request_no");
-        $datas2 = $sql2->result_array();
-        
-        if(count($datas) > 0){
-            $dataFinal = $datas;
-        }else{
-            $dataFinal = $datas2;
-        }
-
-        echo json_encode($dataFinal);
+        echo json_encode($datas);
     }
 
     public function readPrDetailUpdate()

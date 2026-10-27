@@ -133,10 +133,6 @@
         url_save = '<?= base_url('finance/account_coa/create') ?>';
         $('#frm_insert').form('clear');
 
-        $("#account_number").textbox({
-            readonly: false
-        });
-
         $.ajax({
             type: "post",
             url: "<?= base_url('finance/account_coa/autoid') ?>",
@@ -152,11 +148,6 @@
         if (row) {
             $('#dlg_insert').dialog('open');
             $('#frm_insert').form('load', row);
-
-            $("#account_number").textbox({
-                readonly: true
-            });
-
             url_save = '<?= base_url('finance/account_coa/update') ?>?id=' + btoa(row.id);
         } else {
             toastr.warning("Please select one of the data in the table first!", "Information");
@@ -187,10 +178,9 @@
                     });
 
                     requestDelete(rows.length, rows);
-
                     function requestDelete(total, json, number = 1, value = 0) {
                         if (value < 100) {
-                            var row = json[number - 1];
+                            var row = json[number-1];
                             value = Math.floor((number / total) * 100);
 
                             $.ajax({
@@ -298,22 +288,13 @@
             pageList: [20, 50, 100, 500, 1000],
             pageSize: 20,
         }).datagrid('enableFilter', [{
-            field: 'status',
-            type: 'combobox',
-            options: {
-                panelHeight: 'auto',
-                data: [{
-                    value: '',
-                    text: 'All'
-                }, {
-                    value: '1',
-                    text: 'YES'
-                }, {
-                    value: '0',
-                    text: 'NO'
-                }],
-                onChange: function(value) {
-                    if (value == '') {
+            field:'status',
+            type:'combobox',
+            options:{
+                panelHeight:'auto',
+                data:[{value:'',text:'All'},{value:'1',text:'YES'},{value:'0',text:'NO'}],
+                onChange:function(value){
+                    if (value == ''){
                         $('#dg').datagrid('removeFilterRule', 'status');
                     } else {
                         $('#dg').datagrid('addFilterRule', {
@@ -385,9 +366,9 @@
                     $('#frm_insert').form('submit', {
                         url: url_save,
                         onSubmit: function() {
-                            if ($(this).form('validate') === true) {
+                            if($(this).form('validate') === true){
                                 $('#dlg_insert').dialog('close');
-
+                                
                                 Swal.fire({
                                     title: 'Please Wait...',
                                     showConfirmButton: false,
@@ -397,7 +378,7 @@
                                         Swal.showLoading();
                                     },
                                 });
-                            } else {
+                            }else{
                                 return $(this).form('validate');
                             }
                         },

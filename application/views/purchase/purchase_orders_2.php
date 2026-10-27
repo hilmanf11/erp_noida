@@ -151,6 +151,14 @@
                 <input style="width:60%;" name="maker" class="easyui-textbox">
             </div>
             <div class="fitem">
+                <span style="width:35%; display:inline-block;">Before Qty</span>
+                <input style="width:40%;" name="bf_qty" id="bf_qty" class="easyui-numberbox" readonly>
+            </div>
+            <div class="fitem">
+                <span style="width:35%; display:inline-block;">POR Qty</span>
+                <input style="width:40%;" name="por_qty" id="por_qty" class="easyui-numberbox" readonly>
+            </div>
+            <div class="fitem">
                 <span style="width:35%; display:inline-block;">Qty</span>
                 <input style="width:40%;" name="qty" id="qty" class="easyui-numberbox">
             </div>
@@ -199,7 +207,7 @@
                 </center>
             </div>
         </fieldset>
-        
+
     </form>
 </div>
 
@@ -235,16 +243,16 @@
         $('#po_no').textbox('clear');
 
         $("#po_date").datebox({
-            onChange: function(val){
+            onChange: function(val) {
                 $.ajax({
                     type: "post",
                     url: "<?= base_url("purchase/purchase_orders_2/request_no/" . $id_menu . "/add") ?>/" + btoa(val),
                     dataType: "json",
-                    success: function (response) {
-                        if(response == ""){
+                    success: function(response) {
+                        if (response == "") {
                             toastr.info("Please Check Configuration in Serial No First");
                             $("#po_no").textbox('clear');
-                        }else{
+                        } else {
                             $("#po_no").textbox('setValue', response.code);
                         }
                     }
@@ -259,7 +267,7 @@
             valueField: 'id',
             textField: 'name',
             prompt: 'Select Supplier',
-            onSelect: function(supp){
+            onSelect: function(supp) {
                 $("#request_no").combobox({
                     url: '<?= base_url('purchase/purchase_request_others/readRequestno/') ?>' + btoa(supp.id),
                     valueField: 'request_no',
@@ -299,11 +307,11 @@
             data: "id=" + id,
             dataType: "json",
             success: function(json) {
-                if(parseFloat(json.price) > 0){
+                if (parseFloat(json.price) > 0) {
                     toastr.success("Price Changed!");
                     $("#price").numberbox('setValue', json.price);
                     $("#total").numberbox('setValue', (parseFloat(qty) * parseFloat(json.price)));
-                }else{
+                } else {
                     toastr.error("Price Cannot Change, Please cek data in Master Supplier Contract");
                 }
             }
@@ -427,11 +435,24 @@
 
     function preview() {
         var supplier_id = $("#supplier_id").combobox('getValue');
-        
+
         if (supplier_id == "") {
             toastr.warning('Please select Supplier', 'Required');
         } else {
-            addTable(supplier_id);
+            $.ajax({
+                type: "post",
+                url: "<?= base_url("purchase/purchase_orders_2/checkSupplier") ?>",
+                data: "supplier_id=" + mrp_supplier,
+                dataType: "json",
+                success: function(response) {
+                    if (response.theme == "success") {
+                        addTable(supplier_id);
+                    } else {
+                        toastr.error(response.message);
+                        return false;
+                    }
+                }
+            });
 
             function addTable(supplier_id, link = "") {
                 var lastIndex;
@@ -446,7 +467,7 @@
                             halign: 'center',
                             title: "Action",
                             formatter: removebtn
-                        },{
+                        }, {
                             field: 'request_no',
                             width: 150,
                             readonly: true,
@@ -458,7 +479,7 @@
                                     readonly: true
                                 }
                             }
-                        },{
+                        }, {
                             field: 'item_rm_id',
                             width: 150,
                             halign: 'center',
@@ -521,7 +542,7 @@
                                     }
                                 }
                             }
-                        },{
+                        }, {
                             field: 'item_rm_number',
                             width: 200,
                             readonly: true,
@@ -578,7 +599,7 @@
                                             index: rowIndex,
                                             field: 'total'
                                         });
-                                        
+
                                         var price = $(ed.target).numberbox('getValue');
                                         $(ed2.target).textbox('setValue', (parseFloat(value) * parseFloat(price)));
                                     }
@@ -659,9 +680,9 @@
                             }
                         }]
                     ],
-                    onLoadSuccess: function(row){
+                    onLoadSuccess: function(row) {
                         // console.log(rowIndex);
-                        if(row.total == 0){
+                        if (row.total == 0) {
                             toastr.error("Data Purchase Request Not Found, Please Check Data Supplier Contract, Approval Purchase Request or Asset Code still Empty");
                         }
                     },
@@ -715,6 +736,7 @@
     }
 
     var editIndex = undefined;
+
     function endEditing() {
         if (editIndex == undefined) {
             return true
@@ -732,7 +754,7 @@
         if (endEditing()) {
             var request_no = $("#request_no").combobox('getValue');
 
-            if(request_no != ""){
+            if (request_no != "") {
                 $('#dg_request').datagrid('appendRow', {
                     "action": 0,
                     "qty": 0,
@@ -742,7 +764,7 @@
 
                 editIndex = $('#dg_request').datagrid('getRows').length - 1;
                 $('#dg_request').datagrid('selectRow', editIndex).datagrid('beginEdit', editIndex);
-            }else{
+            } else {
                 toastr.error("Please Choose Purchase Request No");
             }
         }
@@ -775,9 +797,9 @@
     }
 
     function btnTerms(val, row) {
-        if(row.datatable == 1){
-            var details = "terms('"+row.po_no+"')";
-            return '<a class="btn btn-primary w-100" style="pointer-events: visible; opacity:1;" onClick="'+details+'"><i class="fa fa-edit"></i> Edit</a>';
+        if (row.datatable == 1) {
+            var details = "terms('" + row.po_no + "')";
+            return '<a class="btn btn-primary w-100" style="pointer-events: visible; opacity:1;" onClick="' + details + '"><i class="fa fa-edit"></i> Edit</a>';
         }
     }
 
@@ -790,45 +812,45 @@
             url: "<?= base_url('purchase/purchase_orders_2/readTerm') ?>",
             data: "po_no=" + po_no,
             dataType: "json",
-            success: function (json) {
-                if(json.terms == null){
-                    $(".summernote").summernote("code", 
-                        "<table>" + 
-                            "<tr>" +
-                                "<td width='100'>Delivery</td>" +
-                                "<td width='200'></td>" +
-                            "</tr>" + 
-                            "<tr>" +
-                                "<td>Warranty</td>" +
-                                "<td></td>" +
-                            "</tr>" + 
-                            "<tr>" +
-                                "<td>Payment Term</td>" +
-                                "<td></td>" +
-                            "</tr>" + 
-                            "<tr>" +
-                                "<td>Note</td>" +
-                                "<td></td>" +
-                            "</tr>" + 
-                            "<tr>" +
-                                "<td>P & F</td>" +
-                                "<td></td>" +
-                            "</tr>" + 
-                            "<tr>" +
-                                "<td>Installation</td>" +
-                                "<td></td>" +
-                            "</tr>" + 
-                            "<tr>" +
-                                "<td>Machine Training</td>" +
-                                "<td></td>" +
-                            "</tr>" + 
-                            "<tr>" +
-                                "<td>Spare Part</td>" +
-                                "<td></td>" +
-                            "</tr>" + 
+            success: function(json) {
+                if (json.terms == null) {
+                    $(".summernote").summernote("code",
+                        "<table>" +
+                        "<tr>" +
+                        "<td width='100'>Delivery</td>" +
+                        "<td width='200'></td>" +
+                        "</tr>" +
+                        "<tr>" +
+                        "<td>Warranty</td>" +
+                        "<td></td>" +
+                        "</tr>" +
+                        "<tr>" +
+                        "<td>Payment Term</td>" +
+                        "<td></td>" +
+                        "</tr>" +
+                        "<tr>" +
+                        "<td>Note</td>" +
+                        "<td></td>" +
+                        "</tr>" +
+                        "<tr>" +
+                        "<td>P & F</td>" +
+                        "<td></td>" +
+                        "</tr>" +
+                        "<tr>" +
+                        "<td>Installation</td>" +
+                        "<td></td>" +
+                        "</tr>" +
+                        "<tr>" +
+                        "<td>Machine Training</td>" +
+                        "<td></td>" +
+                        "</tr>" +
+                        "<tr>" +
+                        "<td>Spare Part</td>" +
+                        "<td></td>" +
+                        "</tr>" +
                         "</table>"
                     );
-                }else{
+                } else {
                     $(".summernote").summernote("code", json.terms);
                 }
             }
@@ -922,16 +944,16 @@
         var filter_suppliers = $("#filter_suppliers").combobox('getValue');
 
         url = "?filter_from=" + filter_from + "&filter_to=" + filter_to + "&filter_po_no=" + filter_po_no + "&filter_suppliers=" + filter_suppliers + "&filter_pr_no=" + filter_pr_no + "&filter_item_no=" + filter_item_no;
-        
+
         window.location.assign('<?= base_url('purchase/purchase_orders_2/print/excel') ?>' + url);
     }
 
     function print_po() {
         var rows = $('#dg').treegrid('getSelected');
         if (rows) {
-            if(rows.approved_to == ""){
+            if (rows.approved_to == "") {
                 window.open("<?= base_url('purchase/purchase_orders_2/print_po/') ?>" + window.btoa(rows.po_no), "_blank");
-            }else{
+            } else {
                 toastr.error("Approval Still Checking!!");
             }
         } else {
@@ -942,7 +964,7 @@
     function reload() {
         window.location.reload();
     }
-    
+
     $(function() {
         readPo();
         filter();
@@ -1000,7 +1022,7 @@
                                 if (r) {
                                     for (var i = 0; i < totalrows; i++) {
                                         var row = rows[i];
-                                        if(row.price <= 0){
+                                        if (row.price <= 0) {
                                             toastr.error("Price is 0, please Check in Supplier Contract");
                                             return false;
                                         }
@@ -1061,6 +1083,15 @@
                 text: 'Send to Approval',
                 iconCls: 'icon-ok',
                 handler: function() {
+                    var por_qty = $("#por_qty").numberbox('getValue');
+                    var bf_qty = $("#bf_qty").numberbox('getValue');
+                    var qty = $("#qty").numberbox('getValue');
+
+                    if (parseInt(por_qty) >= parseInt(qty)) {
+                        toastr.error("POR qty >= Qty PO");
+                        return false;
+                    }
+
                     $('#frm_update').form('submit', {
                         url: '<?= base_url('purchase/purchase_orders_2/update') ?>',
                         onSubmit: function() {
@@ -1170,13 +1201,13 @@
         }
     }
 
-    function numberformatPrice2(value, row){
-        if(row.supplier_type == "LOCAL"){
+    function numberformatPrice2(value, row) {
+        if (row.supplier_type == "LOCAL") {
             var decimal = 2;
-        }else{
+        } else {
             var decimal = 4;
         }
-        
+
         const formatter = new Intl.NumberFormat('ja-JP', {
             minimumFractionDigits: decimal
         });
@@ -1192,9 +1223,9 @@
     }
 
     function numberformat(value, row) {
-        if(row.currency == "INR"){
+        if (row.currency == "INR") {
             var digit = 4;
-        }else{
+        } else {
             var digit = 5;
         }
 
@@ -1223,7 +1254,7 @@
     function cellStylerApproval(value, row, index) {
         if (row.approved_to == null) {
             return '';
-        } else if(row.approved_to == ""){
+        } else if (row.approved_to == "") {
             return 'background: #53D636; color:white;';
         } else {
             return 'background: #FF5F5F; color:white;';
@@ -1233,7 +1264,7 @@
     function cellFormatterApproval(val, row) {
         if (row.approved_to == null) {
             return '';
-        } else if(row.approved_to == ""){
+        } else if (row.approved_to == "") {
             return 'Approved';
         } else {
             return 'Checking';

@@ -33,204 +33,6 @@ class Journal_postings extends CI_Controller
         }
     }
 
-    public function begin_balance($filter_from)
-    {
-        // if($display == "Before"){
-        //     $where_modul = "and modul != 'CLOSING JOURNAL'";
-        // }else{
-        //     $where_modul = "";
-        // }
-
-        $query = $this->db->query("SELECT account_number, account_name, COALESCE(SUM(local_debit)) as ending_debit, COALESCE(SUM(local_credit)) as ending_credit
-            FROM (
-                (SELECT journal_date, `number`, account_number, account_name, modul, `description`, currency, SUM(local_debit) as local_debit, SUM(local_credit) as local_credit
-                FROM journal_postings
-                WHERE journal_date < '$filter_from' and modul NOT IN ('BANK STATEMENT','CLEARING')
-                GROUP BY `number`, account_number) 
-            UNION ALL
-                (SELECT journal_date, `number`, account_number, account_name, modul, `description`, currency, 
-                (CASE WHEN SUM(local_credit) > 0 THEN SUM(local_credit) ELSE 0 END) as local_debit,
-                (CASE WHEN SUM(local_debit) > 0 THEN SUM(local_debit) ELSE 0 END) as local_credit
-                FROM journal_postings
-                WHERE journal_date < '$filter_from' and modul = 'BANK STATEMENT'
-                GROUP BY `number`, account_number)
-            ) a 
-            GROUP BY account_number");
-        $journals = $query->result_array();
-
-        $data = [];
-        foreach ($journals as $journal) {
-            $journal_debit = @$journal['ending_debit'];
-            $journal_credit = @$journal['ending_credit'];
-
-            if (($journal_debit - $journal_credit) > 0) {
-                $journal_end_debit_f = ($journal_debit - $journal_credit);
-                $journal_end_credit_f = 0;
-            } else {
-                $journal_end_debit_f = 0;
-                $journal_end_credit_f = abs($journal_debit - $journal_credit);
-            }
-
-            $data[@$journal['account_number']] = array(
-                "local_debit" => @$journal_debit,
-                "local_credit" => @$journal_credit,
-                "ending_debit" => $journal_end_debit_f,
-                "ending_credit" => $journal_end_credit_f,
-                "header" => 1,
-            );
-        }
-
-        return $data;
-    }
-
-    public function getData($filter_from, $filter_to)
-    {
-        $period = date("Ym", strtotime($filter_from));
-
-        $query = $this->db->query("SELECT account_number, account_name, COALESCE(SUM(local_debit)) as local_debit, COALESCE(SUM(local_credit)) as local_credit
-            FROM (
-                (SELECT journal_date, `number`, account_number, account_name, modul, `description`, currency, SUM(local_debit) as local_debit, SUM(local_credit) as local_credit
-                FROM journal_postings
-                WHERE journal_date between '$filter_from' and '$filter_to' and modul NOT IN ('BANK STATEMENT','CLEARING')
-                GROUP BY `number`, account_number) 
-            UNION ALL 
-                (SELECT journal_date, `number`, account_number, account_name, modul, `description`, currency, 
-                (CASE WHEN SUM(local_credit) > 0 THEN SUM(local_credit) ELSE 0 END) as local_debit,
-                (CASE WHEN SUM(local_debit) > 0 THEN SUM(local_debit) ELSE 0 END) as local_credit
-                FROM journal_postings
-                WHERE journal_date between '$filter_from' and '$filter_to' and modul = 'BANK STATEMENT'
-                GROUP BY `number`, account_number)
-            ) a GROUP BY account_number");
-        $journals = $query->result_array();
-
-        $arrJournal = [];
-        foreach ($journals as $journal) {
-            $arrJournal[$journal['account_number']] = [
-                "local_debit" => $journal['local_debit'],
-                "local_credit" => $journal['local_credit']
-            ];
-        }
-
-        $queryClosing = $this->db->query("SELECT journal_date, `number`, account_number, account_name, modul, `description`, currency, SUM(local_debit) AS local_debit, SUM(local_credit) AS local_credit
-            FROM journal_postings
-            WHERE journal_date BETWEEN '$filter_from' AND '$filter_to' AND modul NOT IN ('BANK STATEMENT','CLEARING') AND modul = 'CLOSING JOURNAL'
-            GROUP BY account_number");
-        $journalClosing = $queryClosing->result_array();
-
-        $arrClosing = [];
-        foreach ($journalClosing as $closing) {
-            $arrClosing[$closing['account_number']] = [
-                "local_debit" => empty($closing['local_debit']) ? 0 : $closing['local_debit'],
-                "local_credit" => empty($closing['local_credit']) ? 0 : $closing['local_credit'],
-            ];
-        }
-
-        $journal2 = $this->begin_balance($filter_from);
-
-        $this->db->select('a.*');
-        $this->db->from('account_coa a');
-        $this->db->where('status', "1");
-        $this->db->order_by('a.account_number', 'asc');
-        $accounts = $this->db->get()->result_array();
-
-        $local_debit = 0;
-        $local_credit = 0;
-        $begin_debit = 0;
-        $begin_credit = 0;
-        $ending_debit = 0;
-        $ending_credit = 0;
-        $final_balance_total = 0;
-        $closing_debit_total = 0;
-        $closing_credit_total = 0;
-        $closing_ending_debit_total = 0;
-        $closing_ending_credit_total = 0;
-        $closing_final_total = 0;
-        $text = "";
-        $sortsub = 0;
-        $detail = [];
-        foreach ($accounts as $account) {
-            $account_number = $account['account_number'];
-
-            if (($account['local_debit'] + @$journal2[$account_number]['ending_debit']) - abs($account['local_kredit'] + @$journal2[$account_number]['ending_credit']) > 0) {
-                $journal_begin_debit = (($account['local_debit'] + @$journal2[$account_number]['ending_debit']) - abs($account['local_kredit'] + @$journal2[$account_number]['ending_credit']));
-                $journal_begin_credit = 0;
-            } else {
-                $journal_begin_debit = 0;
-                $journal_begin_credit = abs(($account['local_debit'] + @$journal2[$account_number]['ending_debit']) - abs($account['local_kredit'] + @$journal2[$account_number]['ending_credit']));
-            }
-
-            // $journal_begin_debit = ($account['local_debit'] + @$journal2[$account_number]['ending_debit']);
-            // $journal_begin_credit = abs($account['local_kredit'] + @$journal2[$account_number]['ending_credit']);
-
-            $begin_debit += $journal_begin_debit;
-            $begin_credit += $journal_begin_credit;
-
-            $journal_debit = empty($arrJournal[$account_number]['local_debit']) ? 0 : $arrJournal[$account_number]['local_debit'];
-            $journal_credit = empty($arrJournal[$account_number]['local_credit']) ? 0 : $arrJournal[$account_number]['local_credit'];
-
-            $local_debit += $journal_debit;
-            $local_credit += $journal_credit;
-
-            $journal_end_debit = ($account['local_debit'] + @$journal2[$account_number]['ending_debit'] + $journal_debit);
-            $journal_end_credit = ($account['local_kredit'] + @$journal2[$account_number]['ending_credit'] + $journal_credit);
-
-            if (($journal_end_debit - $journal_end_credit) > 0) {
-                $ending_debit += ($journal_end_debit - $journal_end_credit);
-                $journal_end_debit_f = ($journal_end_debit - $journal_end_credit);
-                $journal_end_credit_f = 0;
-            } else {
-                $ending_credit += abs($journal_end_debit - $journal_end_credit);
-                $journal_end_debit_f = 0;
-                $journal_end_credit_f = abs($journal_end_debit - $journal_end_credit);
-            }
-
-            $final_balance = ((($account['local_debit'] + @$journal2[$account_number]['ending_debit']) + $journal_debit) - (($account['local_kredit'] + @$journal2[$account_number]['ending_credit']) + $journal_credit));
-            $final_balance_total += $final_balance;
-
-            $closing_debit = @$arrClosing[$account_number]['local_debit'];
-            $closing_credit = @$arrClosing[$account_number]['local_credit'];
-            $closing_debit_total += @$arrClosing[$account_number]['local_debit'];
-            $closing_credit_total += @$arrClosing[$account_number]['local_credit'];
-
-            if ((($closing_debit + $journal_end_debit_f) - ($closing_credit + $journal_end_credit_f)) > 0) {
-                $closing_ending_debit = (($closing_debit + $journal_end_debit_f) - ($closing_credit + $journal_end_credit_f));
-                $closing_ending_credit = 0;
-            } else {
-                $closing_ending_debit = 0;
-                $closing_ending_credit = abs(($closing_debit + $journal_end_debit_f) - ($closing_credit + $journal_end_credit_f));
-            }
-
-            $closing_ending_debit_total += $closing_ending_debit;
-            $closing_ending_credit_total += $closing_ending_credit;
-
-            $closing_final = (($closing_debit + $journal_end_debit_f) - ($closing_credit + $journal_end_credit_f));
-            $closing_final_total += $closing_final;
-
-            $detail[] = array(
-                "period" => $period,
-                "account_number" => $account_number,
-                "account_name" => $account['account_name'],
-                "begin_debit" => $journal_begin_debit,
-                "begin_credit" => $journal_begin_credit,
-                "local_debit" => $journal_debit,
-                "local_credit" => $journal_credit,
-                "ending_debit" => $journal_end_debit_f,
-                "ending_credit" => $journal_end_credit_f,
-                "final_balance" => $final_balance,
-                "closing_debit" => $closing_debit,
-                "closing_credit" => $closing_credit,
-                "closing_tb_debit" => $closing_ending_debit,
-                "closing_tb_credit" => $closing_ending_credit,
-                "closing_final" => $closing_final,
-                "sortsub" => $sortsub
-            );
-
-            $sortsub++;
-        }
-
-        return $detail;
-    }
-
     public function readJournalType()
     {
         $post = isset($_POST['q']) ? $_POST['q'] : "";
@@ -358,7 +160,7 @@ class Journal_postings extends CI_Controller
             $records = $this->db->get()->result_array();
 
             echo json_encode($records);
-        } elseif ($modul == "DIRECT LABOUR") {
+        } elseif ($modul == "DIRECT LABOUR"){
             $this->db->select('*');
             $this->db->from('journal_types');
             $this->db->where('number', 'J046');
@@ -367,7 +169,7 @@ class Journal_postings extends CI_Controller
             $records = $this->db->get()->result_array();
 
             echo json_encode($records);
-        } elseif ($modul == "FOH") {
+        } elseif ($modul == "FOH"){
             $this->db->select('*');
             $this->db->from('journal_types');
             $this->db->where('number', 'J047');
@@ -376,7 +178,7 @@ class Journal_postings extends CI_Controller
             $records = $this->db->get()->result_array();
 
             echo json_encode($records);
-        } elseif ($modul == "CLOSING JOURNAL") {
+        } elseif ($modul == "CLOSING JOURNAL"){
             $this->db->select('*');
             $this->db->from('journal_types');
             $this->db->where('number', 'JC051');
@@ -520,7 +322,7 @@ class Journal_postings extends CI_Controller
             $customers = $this->db->get()->result_array();
 
             $data = array();
-            if (count($suppliers) > 0) {
+            if(count($suppliers) > 0){
                 foreach ($suppliers as $supplier) {
                     $data[] = array(
                         "company_id" => $supplier['company_id'],
@@ -529,7 +331,7 @@ class Journal_postings extends CI_Controller
                 }
             }
 
-            if (count($customers) > 0) {
+            if(count($customers) > 0){
                 foreach ($customers as $customer) {
                     $data[] = array(
                         "company_id" => $customer['company_id'],
@@ -571,7 +373,7 @@ class Journal_postings extends CI_Controller
             $records = $this->db->get()->result_array();
 
             echo json_encode($records);
-        }
+        } 
     }
 
     public function readModul()
@@ -723,27 +525,27 @@ class Journal_postings extends CI_Controller
         $sql_menu = $this->db->query("SELECT * FROM menus_no WHERE menus_id = '$id_menu' and `status` = '0' and `start_date` <= '$datenow' and end_date >= '$datenow'");
         $row_menu = $sql_menu->row();
 
-        if (@$row_menu->number == "") {
+        if(@$row_menu->number == ""){
             //
-        } else {
+        }else{
             $number = @$row_menu->number;
             $yearnow = date("y", strtotime($row_menu->start_date));
             $yearend = date("y", strtotime($row_menu->end_date));
 
-            $whereDate = $number . $yearnow . $yearend . "1";
+            $whereDate = $number.$yearnow.$yearend."1";
 
-            $sqlGetID    = $this->db->query("SELECT max(`number`) as kode FROM journal_postings WHERE `number` like '%$whereDate%'");
+            $sqlGetID	= $this->db->query("SELECT max(`number`) as kode FROM journal_postings WHERE `number` like '%$whereDate%'");
             $rowID = $sqlGetID->row();
             $kode = $rowID->kode;
-
+            
             if ($kode == NULL) {
-                $autoID = sprintf("%0" . $row_menu->sequence . "s", $kode + 1);
-                $autoNo = $whereDate . $autoID;
+                $autoID = sprintf("%0".$row_menu->sequence."s", $kode + 1);
+                $autoNo = $whereDate.$autoID;
             } else {
                 $urutan = (int) substr($kode, -6);
                 $urutan++;
-                $autoID    = sprintf("%0" . $row_menu->sequence . "s", $urutan);
-                $autoNo = $whereDate . $autoID;
+                $autoID	= sprintf("%0".$row_menu->sequence."s", $urutan);
+                $autoNo = $whereDate.$autoID;
             }
 
             echo $autoNo;
@@ -914,8 +716,8 @@ class Journal_postings extends CI_Controller
                         if ($currency != "INR") {
                             $original_debit = $debit;
                             $original_credit = $credit;
-                            $local_debit = ($debit * @$rate);
-                            $local_credit = ($credit * @$rate);
+                            $local_debit = round($debit * @$rate, 2);
+                            $local_credit = round($credit * @$rate, 2);
 
                             $rates = @$rate;
                         } else {
@@ -1135,6 +937,7 @@ class Journal_postings extends CI_Controller
             $result['total'] = count($data);
             $result = array_merge($result, ['rows' => $data], ["footer" => $footer]);
             echo json_encode($result);
+
         } elseif ($modul == "AP PAYMENT") {
             $this->db->select("a.payment_no, b.payment_date, b.purchase_invoice, b.supplier_invoice, c.id as supplier_id, c.name as supplier_name, 
                 b.currency, a.description, a.account_number, a.account_name, a.debit, a.credit, a.flag, a.local_debit, a.local_credit, b.rate,
@@ -1177,9 +980,9 @@ class Journal_postings extends CI_Controller
                     $local_debit = $journal['local_debit'];
                     $local_credit = $journal['local_credit'];
 
-                    if (($original_debit + $original_credit) == 0) {
+                    if(($original_debit + $original_credit) == 0){
                         $rates = 1;
-                    } else {
+                    }else{
                         $rates = (($journal['local_debit'] + $journal['local_credit']) / ($original_debit + $original_credit));
                     }
                 } else {
@@ -1352,12 +1155,12 @@ class Journal_postings extends CI_Controller
 
                 //     $rates = @$exchange->middle;
                 // } else {
-                $original_debit = $debit;
-                $original_credit = $credit;
-                $local_debit = $debit;
-                $local_credit = $credit;
+                    $original_debit = $debit;
+                    $original_credit = $credit;
+                    $local_debit = $debit;
+                    $local_credit = $credit;
 
-                $rates = 1;
+                    $rates = 1;
                 // }
 
                 $data[] = array(
@@ -1736,9 +1539,9 @@ class Journal_postings extends CI_Controller
             );
 
             $footer[] = array(
-                "original_debit" => abs(round(($total_inventory_rm + $total_final_labor + $total_final_foh), 2)),
+                "original_debit" => abs(round(($total_inventory_rm + $total_final_labor + $total_final_foh),2)),
                 "original_credit" => abs(round($total_amount_fg_in, 2)),
-                "local_debit" => abs(round(($total_inventory_rm + $total_final_labor + $total_final_foh), 2)),
+                "local_debit" => abs(round(($total_inventory_rm + $total_final_labor + $total_final_foh),2)),
                 "local_credit" => abs(round($total_amount_fg_in, 2)),
             );
 
@@ -1770,12 +1573,12 @@ class Journal_postings extends CI_Controller
                 "local_debit" => round($total_labour, 2),
                 "local_credit" => 0,
             );
-
+            
             $total_labour_credit = 0;
             foreach ($labours as $labour) {
-                $data[] = array(
+                 $data[] = array(
                     "trans_date" => $transaction_to,
-                    "document_no" => "COSTING DIRECT LABOUR (" . $labour->account_number . ")",
+                    "document_no" => "COSTING DIRECT LABOUR (".$labour->account_number.")",
                     "invoice_no" => "-",
                     "company_id" => "ALL",
                     "company_name" => "ALL",
@@ -1795,9 +1598,9 @@ class Journal_postings extends CI_Controller
             }
 
             $footer[] = array(
-                "original_debit" => round(($total_labour), 2),
+                "original_debit" => round(($total_labour),2),
                 "original_credit" => round($total_labour_credit, 2),
-                "local_debit" => round(($total_labour), 2),
+                "local_debit" => round(($total_labour),2),
                 "local_credit" => round($total_labour_credit, 2),
             );
 
@@ -1829,21 +1632,21 @@ class Journal_postings extends CI_Controller
                 "local_debit" => round($total_labour, 2),
                 "local_credit" => 0,
             );
-
+            
             $total_labour_debit = $total_labour;
             $total_labour_credit = 0;
             foreach ($labours as $labour) {
-                if (($labour->local_debit - abs($labour->local_credit)) > 0) {
+                if(($labour->local_debit - abs($labour->local_credit)) > 0){
                     $labor_debit = 0;
                     $labor_credit = abs($labour->local_debit - abs($labour->local_credit));
-                } else {
+                }else{
                     $labor_credit = 0;
                     $labor_debit = abs($labour->local_debit - abs($labour->local_credit));
                 }
 
-                $data[] = array(
+                 $data[] = array(
                     "trans_date" => $transaction_to,
-                    "document_no" => "COSTING FOH (" . $labour->account_number . ")",
+                    "document_no" => "COSTING FOH (".$labour->account_number.")",
                     "invoice_no" => "-",
                     "company_id" => "ALL",
                     "company_name" => "ALL",
@@ -1864,9 +1667,9 @@ class Journal_postings extends CI_Controller
             }
 
             $footer[] = array(
-                "original_debit" => round(($total_labour_debit), 2),
+                "original_debit" => round(($total_labour_debit),2),
                 "original_credit" => round($total_labour_credit, 2),
-                "local_debit" => round(($total_labour_debit), 2),
+                "local_debit" => round(($total_labour_debit),2),
                 "local_credit" => round($total_labour_credit, 2),
             );
 
@@ -1874,21 +1677,20 @@ class Journal_postings extends CI_Controller
             $result = array_merge($result, ['rows' => $data], ["footer" => $footer]);
             echo json_encode($result);
         } elseif ($modul == "CLOSING JOURNAL") {
-            // $accounts = $this->crud->query("SELECT account_number, account_name FROM account_coa WHERE `status` = '1' ORDER BY account_number asc");
-            $trial_balances = $this->getData("2024-11-01", $journal_date);
+            $accounts = $this->crud->query("SELECT account_number, account_name FROM account_coa WHERE `status` = '1' ORDER BY account_number asc");
 
             $data = array();
             $total_debit = 0;
             $total_credit = 0;
-            foreach ($trial_balances as $trial_balance) {
-                // $trial_balance = $this->crud->read("trial_balances", [], ["period" => date("Ym", strtotime($journal_date)), "account_number" => $account->account_number]);
-
-                if (@$trial_balance['ending_debit'] > 0 || @$trial_balance['ending_credit'] > 0) {
-                    if (@$trial_balance['ending_debit'] > 0) {
+            foreach ($accounts as $account) {
+                $trial_balance = $this->crud->read("trial_balances", [], ["period" => date("Ym", strtotime($journal_date)), "account_number" => $account->account_number]);
+                
+                if(@$trial_balance->ending_debit > 0 || @$trial_balance->ending_credit > 0){
+                    if(@$trial_balance->ending_debit > 0){
                         $debit = 0;
-                        $credit = $trial_balance['ending_debit'];
-                    } else {
-                        $debit = @$trial_balance['ending_credit'];
+                        $credit = $trial_balance->ending_debit;
+                    }else{
+                        $debit = @$trial_balance->ending_credit;
                         $credit = 0;
                     }
 
@@ -1899,8 +1701,8 @@ class Journal_postings extends CI_Controller
                         "company_id" => "ALL",
                         "company_name" => "ALL",
                         "modul" => $modul,
-                        "account_number" => $trial_balance['account_number'],
-                        "account_name" => $trial_balance['account_name'],
+                        "account_number" => $account->account_number,
+                        "account_name" => $account->account_name,
                         "description" => "-",
                         "currency" => "INR",
                         "original_debit" => $debit,
@@ -1915,10 +1717,10 @@ class Journal_postings extends CI_Controller
                 }
             }
 
-            if (($total_debit - $total_credit) > 0) {
+            if(($total_debit - $total_credit) > 0){
                 $earn_debit = 0;
                 $earn_credit = abs($total_debit - $total_credit);
-            } else {
+            }else{
                 $earn_debit = abs($total_debit - $total_credit);
                 $earn_credit = 0;
             }
@@ -1942,9 +1744,9 @@ class Journal_postings extends CI_Controller
             );
 
             $footer[] = array(
-                "original_debit" => round(($total_debit + $earn_debit), 2),
+                "original_debit" => round(($total_debit + $earn_debit),2),
                 "original_credit" => round(($total_credit + $earn_credit), 2),
-                "local_debit" => round(($total_debit + $earn_debit), 2),
+                "local_debit" => round(($total_debit + $earn_debit),2),
                 "local_credit" => round(($total_credit + $earn_credit), 2),
             );
 
@@ -2002,8 +1804,7 @@ class Journal_postings extends CI_Controller
         }
     }
 
-    public function datatablesCheck()
-    {
+    public function datatablesCheck(){
         $post = $this->input->post();
 
         $journal_date = $post['journal_date'];
@@ -2011,9 +1812,9 @@ class Journal_postings extends CI_Controller
         $modul = $post['modul'];
         $company_id = $post['company_id'];
 
-        if (!empty($post['document_no'])) {
+        if(!empty($post['document_no'])){
             $document_no = explode(",", $post['document_no']);
-        } else {
+        }else{
             $document_no = array();
         }
 
@@ -2021,16 +1822,17 @@ class Journal_postings extends CI_Controller
         $this->db->from('journal_postings');
         $this->db->where('journal_date', $transaction_to);
         $this->db->where('modul', $modul);
-        if (count($document_no) > 0) {
+        if(count($document_no) > 0){
             $this->db->where_in('document_no', $document_no);
         }
         $totalRows = $this->db->count_all_results('', false);
 
-        if ($totalRows > 0) {
+        if($totalRows > 0){
             echo 1;
-        } else {
+        }else{
             echo 0;
         }
+
     }
 
     public function datatableDetails()
@@ -2153,7 +1955,7 @@ class Journal_postings extends CI_Controller
         //Mapping Data
         $result['total'] = $totalRows;
         $result = array_merge($result, ['rows' => $records, 'footer' => $footer]);
-        echo json_encode($result);
+        echo json_encode($result);    
     }
 
     public function create()
@@ -2166,23 +1968,23 @@ class Journal_postings extends CI_Controller
             foreach ($dataJournals as $dataJournal) {
                 $period = date("Ym", strtotime($dataJournal['trans_date']));
 
-                if (empty($dataJournal['id'])) {
-                    if ($dataJournal['modul'] == "CLOSING JOURNAL") {
+                if(empty($dataJournal['id'])){
+                    if($dataJournal['modul'] == "CLOSING JOURNAL"){
                         $trial_balance = $this->crud->reads("trial_balances", [], [
-                            "period" => $period,
+                            "period" => $period, 
                             "account_number" => $dataJournal['account_number']
                         ]);
 
-                        if ($dataJournal['original_debit'] > 0) {
+                        if($dataJournal['original_debit'] > 0){
                             $local_debit = (@$trial_balance->local_debit + $dataJournal['original_debit']);
                             $local_credit = (@$trial_balance->local_credit + $dataJournal['original_credit']);
-                        } else {
+                        }else{
                             $local_debit = (@$trial_balance->local_debit + $dataJournal['original_debit']);
                             $local_credit = (@$trial_balance->local_credit + $dataJournal['original_credit']);
                         }
 
                         $send = $this->crud->update('trial_balances', [
-                            "period" => $period,
+                            "period" => $period, 
                             "account_number" => $dataJournal['account_number']
                         ], [
                             "local_debit" => $local_debit,
@@ -2193,7 +1995,7 @@ class Journal_postings extends CI_Controller
                     }
 
                     $send = $this->crud->create('journal_postings', $dataJournal);
-                } else {
+                }else{
                     $send = $this->crud->update('journal_postings', ["id" => $dataJournal['id']], $dataJournal);
                 }
             }
@@ -2211,8 +2013,7 @@ class Journal_postings extends CI_Controller
         echo $send;
     }
 
-    public function upload()
-    {
+    public function upload(){
         error_reporting(0);
         require_once 'assets/vendors/excel_reader2.php';
         $target = basename($_FILES['file_upload']['name']);
@@ -2233,7 +2034,7 @@ class Journal_postings extends CI_Controller
             $urutan++;
             $autoID = sprintf("%04s", $urutan);
         }
-
+        
         $number = $datenow . $autoID;
 
         for ($i = 4; $i <= $total_row; $i++) {
@@ -2262,13 +2063,11 @@ class Journal_postings extends CI_Controller
         unlink($_FILES['file_upload']['name']);
     }
 
-    public function uploadclearFailed()
-    {
+    public function uploadclearFailed(){
         @unlink('excel/failed/journal_postings.txt');
     }
 
-    public function uploadcreateFailed()
-    {
+    public function uploadcreateFailed(){
         if ($this->input->post()) {
             $message = $this->input->post('message');
             $textFailed = fopen('excel/failed/journal_postings.txt', 'a');
@@ -2277,8 +2076,7 @@ class Journal_postings extends CI_Controller
         }
     }
 
-    public function uploadDownloadFailed()
-    {
+    public function uploadDownloadFailed(){
         $file = "excel/failed/journal_postings.txt";
         header('Content-Description: File Failed');
         header('Content-Disposition: attachment; filename=' . basename($file));
@@ -2290,8 +2088,7 @@ class Journal_postings extends CI_Controller
         @readfile($file);
     }
 
-    public function uploadcreate()
-    {
+    public function uploadcreate(){
         if ($this->input->post()) {
             $data = $this->input->post('data');
             //Cek Process Number
@@ -2326,20 +2123,19 @@ class Journal_postings extends CI_Controller
         }
     }
 
-    function linked($modul, $document_no, $amount)
-    {
-        if ($modul == "PURCHASE INVOICING") {
+    function linked($modul, $document_no, $amount){
+        if($modul == "PURCHASE INVOICING"){
             $html = '<a onclick="window.open(\'' . base_url('finance/purchase_invoices/print_invoicing/' . base64_encode($document_no) . "/tb") . '\', \'_blank\', \'location=yes,height=650,width=1500,scrollbars=yes,status=yes\');" style="color: inherit;text-decoration: none;cursor: pointer;">' . number_format($amount, 2) . '</a>';
-        } elseif ($modul == "SALES INVOICING") {
-            $html = '<a onclick="window.open(\'' . base_url('finance/sales_invoices/print_dn/' . base64_encode($document_no) . "/tb") . '\', \'_blank\', \'location=yes,height=650,width=1500,scrollbars=yes,status=yes\');" style="color: inherit;text-decoration: none;cursor: pointer;">' . number_format($amount, 2) . '</a>';
-        } elseif ($modul == "AP PAYMENT") {
-            $html = '<a onclick="window.open(\'' . base_url('finance/ap_payments/print_voucher/' . base64_encode($document_no) . "/tb") . '\', \'_blank\', \'location=yes,height=650,width=1500,scrollbars=yes,status=yes\');" style="color: inherit;text-decoration: none;cursor: pointer;">' . number_format($amount, 2) . '</a>';
-        } elseif ($modul == "AR RECEIPT") {
-            $html = '<a onclick="window.open(\'' . base_url('finance/ar_receipts/print_voucher/' . base64_encode($document_no) . "/tb") . '\', \'_blank\', \'location=yes,height=650,width=1500,scrollbars=yes,status=yes\');" style="color: inherit;text-decoration: none;cursor: pointer;">' . number_format($amount, 2) . '</a>';
-        } else {
+        }elseif($modul == "SALES INVOICING"){
+            $html = '<a onclick="window.open(\'' . base_url('finance/sales_invoices/print_dn/' . base64_encode($document_no). "/tb") . '\', \'_blank\', \'location=yes,height=650,width=1500,scrollbars=yes,status=yes\');" style="color: inherit;text-decoration: none;cursor: pointer;">' . number_format($amount, 2) . '</a>';
+        }elseif($modul == "AP PAYMENT"){
+            $html = '<a onclick="window.open(\'' . base_url('finance/ap_payments/print_voucher/' . base64_encode($document_no). "/tb") . '\', \'_blank\', \'location=yes,height=650,width=1500,scrollbars=yes,status=yes\');" style="color: inherit;text-decoration: none;cursor: pointer;">' . number_format($amount, 2) . '</a>';
+        }elseif($modul == "AR RECEIPT"){
+            $html = '<a onclick="window.open(\'' . base_url('finance/ar_receipts/print_voucher/' . base64_encode($document_no). "/tb") . '\', \'_blank\', \'location=yes,height=650,width=1500,scrollbars=yes,status=yes\');" style="color: inherit;text-decoration: none;cursor: pointer;">' . number_format($amount, 2) . '</a>';
+        }else{
             $html = number_format($amount, 2);
         }
-
+        
         return $html;
     }
 
@@ -2603,14 +2399,14 @@ class Journal_postings extends CI_Controller
                     <body>
                     <div class="print">';
         $no = 1;
-        $this->db->select('a.*, b.name as journal_type_name');
-        $this->db->from('journal_postings a');
-        $this->db->join('journal_types b', 'a.journal_type_id = b.id');
-        $this->db->like('a.number', $number);
-        $this->db->order_by('a.trans_date', 'ASC');
-        $records = $this->db->get()->result_array();
+            $this->db->select('a.*, b.name as journal_type_name');
+            $this->db->from('journal_postings a');
+            $this->db->join('journal_types b', 'a.journal_type_id = b.id');
+            $this->db->like('a.number', $number);
+            $this->db->order_by('a.trans_date', 'ASC');
+            $records = $this->db->get()->result_array();
 
-        $html .= '  <table style="width:100%;">
+            $html .= '  <table style="width:100%;">
                             <tr>
                                 <th width="10"><img src="' . $config->favicon . '" width="60" /></th>
                                 <td width="250" style="padding:10px;">
@@ -2678,13 +2474,13 @@ class Journal_postings extends CI_Controller
                                         <th>Debit</th>
                                         <th>Credit</th>
                                     </tr>';
-        $original_debit = 0;
-        $original_credit = 0;
-        $rates = 0;
-        $local_debit = 0;
-        $local_credit = 0;
-        foreach ($records as $record) {
-            $html .= '  <tr>
+            $original_debit = 0;
+            $original_credit = 0;
+            $rates = 0;
+            $local_debit = 0;
+            $local_credit = 0;
+            foreach ($records as $record) {
+                $html .= '  <tr>
                                 <td style="text-align:center">' . $no . '</td>
                                 <td>' . $record['document_no'] . '</td>
                                 <td>' . $record['account_number'] . '</td>
@@ -2699,15 +2495,15 @@ class Journal_postings extends CI_Controller
                                 <td style="text-align:right;">' . $this->linked($record['modul'], $record['document_no'], $record['local_credit']) . '</td>
                             </tr>';
 
-            $original_debit += $record['original_debit'];
-            $original_credit += $record['original_credit'];
-            $rates += $record['rates'];
-            $local_debit += $record['local_debit'];
-            $local_credit += $record['local_credit'];
-            $no++;
-        }
+                $original_debit += $record['original_debit'];
+                $original_credit += $record['original_credit'];
+                $rates += $record['rates'];
+                $local_debit += $record['local_debit'];
+                $local_credit += $record['local_credit'];
+                $no++;
+            }
 
-        $html .= '  <tr>
+            $html .= '  <tr>
                             <th style="text-align:right" colspan="7">SUB TOTAL</th>
                             <th style="text-align:right;">' . @number_format($original_debit, 2) . '</th>
                             <th style="text-align:right;">' . @number_format($original_credit, 2) . '</th>

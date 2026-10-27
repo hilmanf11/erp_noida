@@ -13,10 +13,7 @@
             <th rowspan="2" data-options="field:'item_rm_id',width:120,halign:'center'">Part No EBWS</th>
             <th rowspan="2" data-options="field:'item_rm_number',width:200,halign:'center'">Part No Supplier</th>
             <th rowspan="2" data-options="field:'item_rm_name',width:200,halign:'center'">Description</th>
-            <th rowspan="2" data-options="field:'item_category_name',width:120,halign:'center'">Category</th>
-            <th rowspan="2" data-options="field:'asset_type',width:120,halign:'center'">Asset Type</th>
             <th rowspan="2" data-options="field:'asset_code',width:120,halign:'center'">Asset Code</th>
-            <th rowspan="2" data-options="field:'asset_date',width:120,halign:'center'">Asset Date</th>
             <th rowspan="2" data-options="field:'uom',width:80,align:'center'">UoM</th>
             <th rowspan="2" data-options="field:'qty',width:80,halign:'center',align:'right',formatter:numberformat">Qty</th>
             <th rowspan="2" data-options="field:'currency',width:80,align:'center'">Currency</th>
@@ -66,7 +63,7 @@
                     <a href="javascript:;" class="easyui-linkbutton" onclick="filter()"><i class="fa fa-search"></i> Filter Data</a>
                 </div>
             </div>
-            <div style="float: left; width: 25%;">
+            <div style="float: left; width: 30%;">
                 <div class="fitem">
                     <span style="width:35%; display:inline-block;">Request No</span>
                     <input style="width:60%;" id="filter_request_no" class="easyui-combobox">
@@ -76,7 +73,7 @@
                     <input style="width:60%;" id="filter_request_name" class="easyui-combobox">
                 </div>
             </div>
-            <div style="float: left; width: 25%;">
+            <div style="float: left; width: 30%;">
                 <div class="fitem">
                     <span style="width:35%; display:inline-block;">Product Family</span>
                     <input style="width:60%;" id="filter_item_familys" class="easyui-combogrid">
@@ -84,24 +81,6 @@
                 <div class="fitem">
                     <span style="width:35%; display:inline-block;">Part No</span>
                     <input style="width:60%;" id="filter_item_rm" class="easyui-combogrid">
-                </div>
-            </div>
-            <div style="float: left; width: 20%;">
-                <div class="fitem">
-                    <span style="width:35%; display:inline-block;">Status PO</span>
-                    <select style="width:60%;" name="filter_status_po" id="filter_status_po" class="easyui-combobox" panelHeight="auto" required>
-                        <option value="">ALL</option>
-                        <option value="1">CONVERTED</option>
-                        <option value="0">UNCONVERTED</option>
-                    </select>
-                </div>
-                <div class="fitem">
-                    <span style="width:35%; display:inline-block;">Status Approval</span>
-                    <select style="width:60%;" name="filter_status_approval" id="filter_status_approval" class="easyui-combobox" panelHeight="auto" required>
-                        <option value="">ALL</option>
-                        <option value="APPROVED">APPROVED</option>
-                        <option value="CHECKING">CHECKING</option>
-                    </select>
                 </div>
             </div>
         </fieldset>
@@ -661,10 +640,8 @@
         var filter_request_name = $("#filter_request_name").combobox('getValue');
         var filter_item_rm = $("#filter_item_rm").combogrid('getValue');
         var filter_item_familys = $("#filter_item_familys").combogrid('getValue');
-        var filter_status_po = $("#filter_status_po").combobox('getValue');
-        var filter_status_approval = $("#filter_status_approval").combobox('getValue');
 
-        url = "?filter_from=" + filter_from + "&filter_to=" + filter_to + "&filter_request_no=" + filter_request_no + "&filter_category=" + filter_category + "&filter_request_name=" + filter_request_name + "&filter_item_familys=" + filter_item_familys + "&filter_item_rm=" + filter_item_rm + "&filter_status_po=" + filter_status_po + "&filter_status_approval=" + filter_status_approval;
+        url = "?filter_from=" + filter_from + "&filter_to=" + filter_to + "&filter_request_no=" + filter_request_no + "&filter_category=" + filter_category + "&filter_request_name=" + filter_request_name + "&filter_item_familys=" + filter_item_familys + "&filter_item_rm=" + filter_item_rm;
         
         $('#dg').treegrid({
             url: '<?= base_url('purchase/purchase_request_others/datatables') ?>' + url,
@@ -699,11 +676,8 @@
         var filter_request_name = $("#filter_request_name").combobox('getValue');
         var filter_item_rm = $("#filter_item_rm").combogrid('getValue');
         var filter_item_familys = $("#filter_item_familys").combogrid('getValue');
-        var filter_status_po = $("#filter_status_po").combobox('getValue');
-        var filter_status_approval = $("#filter_status_approval").combobox('getValue');
 
-        url = "?filter_from=" + filter_from + "&filter_to=" + filter_to + "&filter_request_no=" + filter_request_no + "&filter_category=" + filter_category + "&filter_request_name=" + filter_request_name + "&filter_item_familys=" + filter_item_familys + "&filter_item_rm=" + filter_item_rm + "&filter_status_po=" + filter_status_po + "&filter_status_approval=" + filter_status_approval;
-        
+        url = "?filter_from=" + filter_from + "&filter_to=" + filter_to + "&filter_request_no=" + filter_request_no + "&filter_category=" + filter_category + "&filter_request_name=" + filter_request_name + "&filter_item_familys=" + filter_item_familys + "&filter_item_rm=" + filter_item_rm;
         window.location.assign('<?= base_url('purchase/purchase_request_others/print/excel') ?>' + url);
     }
 

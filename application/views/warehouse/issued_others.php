@@ -218,7 +218,6 @@
                             mode: 'remote',
                             fitColumns: true,
                             prompt: 'Choose Part No EBWS',
-                            loadMsg: 'Please Wait...',
                             columns: [
                                 [{
                                     field: 'item_rm_id',

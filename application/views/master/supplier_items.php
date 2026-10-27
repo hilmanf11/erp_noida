@@ -114,7 +114,6 @@
             </div>
         </fieldset>
         <?= $button ?>
-        <a href="javascript:void(0)" class="easyui-linkbutton" data-options="plain:true" onclick="sendWms()"><i class="fa fa-database"></i> Send to WMS</a>
         <a href="javascript:;" class="easyui-linkbutton" onclick="excel_price()" plain="true"><i class="fa fa-file"></i> Export Price History</a>
     </div>
 </div>
@@ -368,74 +367,6 @@
                                     toastr.error(jqXHR.statusText);
                                 },
                             });
-                        }
-                    }
-                }
-            });
-        } else {
-            toastr.info("Please select one of the data in the table first");
-        }
-    }
-
-    //Send WMS Data
-    function sendWms() {
-        var rows = $('#dg').datagrid('getSelections');
-        if (rows.length > 0) {
-            Swal.fire({
-                title: 'Send Data',
-                text: "Are you sure? You want to send this data to WMS!",
-                icon: 'warning',
-                showCancelButton: true,
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                confirmButtonText: 'Yes, Send it!'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    Swal.fire({
-                        title: 'Please Wait...',
-                        showConfirmButton: false,
-                        allowOutsideClick: false,
-                        allowEscapeKey: false,
-                        didOpen: () => {
-                            Swal.showLoading();
-                        },
-                    });
-
-                    requestSend(rows.length, rows);
-                    function requestSend(total, json, number = 1, value = 0) {
-                        if (value < 100) {
-                            var row = json[number-1];
-                            value = Math.floor((number / total) * 100);
-
-                            if(row.approved_to == ""){
-                                $.ajax({
-                                    method: 'post',
-                                    url: '<?= base_url("api/wms/supplierItemSingle") ?>',
-                                    data: {
-                                        id: row.id
-                                    },
-                                    success: function(result) {
-                                        var result = eval('(' + result + ')');
-                                        requestSend(total, json, number + 1, value);
-
-                                        if (number == total) {
-                                            Swal.close();
-                                            Swal.fire("", result.message, "success");
-                                        }
-                                    },
-                                    error: function(jqXHR, textStatus, errorThrown) {
-                                        toastr.error("Failed to Sending Data WMS");
-                                        swal.close();
-                                    },
-                                });
-                            }else{
-                                toastr.error("This Part No " + row.item_rm_id + " on processing approval");
-                                requestSend(total, json, number + 1, value);
-
-                                if (number == total) {
-                                    Swal.close();
-                                }
-                            }
                         }
                     }
                 }

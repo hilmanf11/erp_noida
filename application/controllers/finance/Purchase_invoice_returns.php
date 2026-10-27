@@ -21,7 +21,7 @@ class Purchase_invoice_returns extends CI_Controller
         } elseif ($this->checkuserAccess($this->id_menu()) > 0) {
             $data['button'] = $this->getbutton($this->id_menu());
             $data['menus_id'] = $this->id_menu();
-
+            
             $this->load->view('template/header', $data);
             $this->load->view('finance/purchase_invoice_returns');
         } else {
@@ -47,7 +47,7 @@ class Purchase_invoice_returns extends CI_Controller
         $this->db->where('a.number', $number);
         $this->db->order_by('a.item_no', 'asc');
         $records = $this->db->get()->result_array();
-
+        
         $total_sub = 0;
         $total_igst = 0;
         $total_sgst = 0;
@@ -58,7 +58,7 @@ class Purchase_invoice_returns extends CI_Controller
             $total_sgst += $record['sgst'];
             $total_cgst += $record['cgst'];
         }
-
+        
         $datas['rows'] = $records;
         $datas['total_sub'] = $total_sub;
         $datas['total_igst'] = $total_igst;
@@ -193,9 +193,9 @@ class Purchase_invoice_returns extends CI_Controller
         $records = $this->crud->query("SELECT DISTINCT a.return_no, a.invoice_no as bc_document, a.return_date as bc_date, c.journal_type_id, a.supplier_id
             FROM purchase_returns a
             LEFT JOIN purchase_invoices c ON a.invoice_no = c.invoice_no and a.item_rm_id = c.item_rm_id
-            WHERE a.status = '0' and a.source != 'QAS'
+            WHERE a.status = '0'
             ORDER BY a.return_no desc");
-
+        
         echo json_encode($records);
     }
 
@@ -218,27 +218,27 @@ class Purchase_invoice_returns extends CI_Controller
         $sql_menu = $this->db->query("SELECT * FROM menus_no WHERE menus_id = '$id_menu' and `status` = '0' and `start_date` <= '$datenow' and end_date >= '$datenow'");
         $row_menu = $sql_menu->row();
 
-        if (@$row_menu->number == "") {
+        if(@$row_menu->number == ""){
             //
-        } else {
+        }else{
             $number = @$row_menu->number;
             $yearnow = date("y", strtotime($row_menu->start_date));
             $yearend = date("y", strtotime($row_menu->end_date));
 
-            $whereDate = $number . $yearnow . $yearend . "1";
+            $whereDate = $number.$yearnow.$yearend."1";
 
-            $sqlGetID    = $this->db->query("SELECT max(`number`) as kode FROM purchase_invoices WHERE `number` like '%$whereDate%'");
+            $sqlGetID	= $this->db->query("SELECT max(`number`) as kode FROM purchase_invoices WHERE `number` like '%$whereDate%'");
             $rowID = $sqlGetID->row();
             $kode = $rowID->kode;
-
+            
             if ($kode == NULL) {
-                $autoID = sprintf("%0" . $row_menu->sequence . "s", $kode + 1);
-                $autoNo = $whereDate . $autoID;
+                $autoID = sprintf("%0".$row_menu->sequence."s", $kode + 1);
+                $autoNo = $whereDate.$autoID;
             } else {
                 $urutan = (int) substr($kode, -6);
                 $urutan++;
-                $autoID    = sprintf("%0" . $row_menu->sequence . "s", $urutan);
-                $autoNo = $whereDate . $autoID;
+                $autoID	= sprintf("%0".$row_menu->sequence."s", $urutan);
+                $autoNo = $whereDate.$autoID;
             }
 
             echo $autoNo;
@@ -300,8 +300,8 @@ class Purchase_invoice_returns extends CI_Controller
         foreach ($records as $record) {
             $total_sub += $record['total'];
             $total_qty += $record['qty'];
-
-            if ($record['state'] == $config->state) {
+            
+            if($record['state'] == $config->state){
                 $igst = 0;
                 $cgst = $record['cgst'];
                 $sgst = $record['sgst'];
@@ -310,7 +310,7 @@ class Purchase_invoice_returns extends CI_Controller
                 $total_igst += 0;
                 $total_cgst += $record['cgst'];
                 $total_sgst += $record['sgst'];
-            } else if ($record['supplier_type'] == "LOCAL") {
+            }else if($record['supplier_type'] == "LOCAL"){
                 $igst = $record['igst'];
                 $cgst = 0;
                 $sgst = 0;
@@ -319,7 +319,7 @@ class Purchase_invoice_returns extends CI_Controller
                 $total_igst += $record['igst'];
                 $total_cgst += 0;
                 $total_sgst += 0;
-            } else {
+            }else {
                 $igst = 0;
                 $cgst = 0;
                 $sgst = 0;
@@ -377,7 +377,7 @@ class Purchase_invoice_returns extends CI_Controller
             "rate" => $rate,
             "total2" => $total_sub2,
             "total_local" => $total_sub3,
-        ]);
+        ]); 
 
         $arr['rows'] = $obj;
         $arr['total_sub'] = round($total_sub, 2);
@@ -937,7 +937,7 @@ class Purchase_invoice_returns extends CI_Controller
                                         </tr>
                                     </table>
                                 </div>
-                                <div style="width:100%; text-align: right; font-size:12px;">Page ' . $hal . '/' . $page . '</div>
+                                <div style="width:100%; text-align: right; font-size:12px;">Page '.$hal.'/'.$page.'</div>
                                 <table id="customers">
                                     <tr>
                                         <th rowspan="2">No</th>
@@ -966,11 +966,11 @@ class Purchase_invoice_returns extends CI_Controller
             $grand_total_local = 0;
             foreach ($records as $record) {
                 $amount = ($record['total_idr']);
-                if ($record['account_type'] == "DEBIT") {
+                if($record['account_type'] == "DEBIT"){
                     $grand_total += $record['total2'];
                     $grand_total_all += $record['total'];
                     $grand_total_local += $amount;
-                } else {
+                }else{
                     $grand_total -= $record['total2'];
                     $grand_total_all -= $record['total'];
                     $grand_total_local -= $amount;
@@ -1004,10 +1004,10 @@ class Purchase_invoice_returns extends CI_Controller
 
             $html .= '  <tr>
                             <th colspan="13" style="text-align:right">TOTAL</th>
-                            <th style="text-align:right">' . number_format($grand_total, 2) . '</th>
+                            <th style="text-align:right">'.number_format($grand_total, 2).'</th>
                             <th></th>
                             <th></th>
-                            <th style="text-align:right">' . number_format($grand_total_local, 2) . '</th>
+                            <th style="text-align:right">'.number_format($grand_total_local, 2).'</th>
                         </tr>
                     </table>
                 </div>';
@@ -1015,7 +1015,7 @@ class Purchase_invoice_returns extends CI_Controller
             if (($i + 1) != $page) {
                 $html .= '<div style="page-break-after:always;"></div>';
             }
-
+            
             $hal++;
         }
 
@@ -1034,21 +1034,21 @@ class Purchase_invoice_returns extends CI_Controller
                                 <td style="font-weight:bold;">Debit</td>
                                 <td style="font-weight:bold;">Credit</td>
                             </tr>';
-        $total_debit = 0;
-        $total_credit = 0;
-        foreach ($journals as $journal) {
-            $total_debit += $journal->debit;
-            $total_credit += $journal->credit;
+            $total_debit = 0;
+            $total_credit = 0;
+            foreach ($journals as $journal) {
+                $total_debit += $journal->debit;
+                $total_credit += $journal->credit;
 
-            $html .= '  <tr>
+                $html .= '  <tr>
                                 <td style="mso-number-format:\@;">' . $journal->account_number . '</td>
                                 <td>' . $journal->account_name . '</td>
                                 <td style="text-align:right;">' . number_format($journal->debit, 2) . '</td>
                                 <td style="text-align:right;">' . number_format($journal->credit, 2) . '</td>
                             </tr>';
-        }
+            }
 
-        $html .= '      <tr>
+            $html .= '      <tr>
                                 <td colspan="2">Balance</td>
                                 <td style="text-align:right;">' . @number_format($total_debit, 2) . '</td>
                                 <td style="text-align:right;">' . @number_format($total_credit, 2) . '</td>
@@ -1077,7 +1077,7 @@ class Purchase_invoice_returns extends CI_Controller
                                 <td style="font-weight:bold; text-align:right;">' . @number_format(@$total_cgst, 2) . '</td>
                             </tr>
                             <tr>
-                                <td style="font-weight:bold;">TDS (' . @$records[0]['tds'] . ')</td>
+                                <td style="font-weight:bold;">TDS ('.@$records[0]['tds'].')</td>
                                 <td style="font-weight:bold; text-align:right;">' . @number_format(@$records[0]['total_tds'], 2) . '</td>
                             </tr>
                             <tr>

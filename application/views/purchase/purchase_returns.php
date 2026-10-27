@@ -5,7 +5,6 @@
             <th rowspan="2" data-options="field:'print_po',width:80,halign:'center',formatter:BtnPrint">Print</th>
             <th rowspan="2" data-options="field:'status',width:80,align:'center', styler:cellStylerStatus, formatter:cellFormatterStatus">Status</th>
             <th rowspan="2" data-options="field:'return_no',width:200,halign:'center'">Return No</th>
-            <th rowspan="2" data-options="field:'source',width:60,align:'center'">Source</th>
             <th rowspan="2" data-options="field:'return_date',width:100,halign:'center'">Return Date</th>
             <th rowspan="2" data-options="field:'return_name',width:150,halign:'center'">Return Name</th>
             <th rowspan="2" data-options="field:'supplier_name',width:200,halign:'center'">Supplier</th>
@@ -20,7 +19,6 @@
             <th rowspan="2" data-options="field:'mpq',width:80,halign:'center',align:'right',formatter:numberformat">MPQ</th>
             <th rowspan="2" data-options="field:'qty',width:80,halign:'center',align:'right',formatter:numberformat">Qty</th>
             <th rowspan="2" data-options="field:'remarks',width:150,halign:'center'">Remarks</th>
-            <th rowspan="2" data-options="field:'wms',width:120,align:'center',formatter:BtnWms">WMS</th>
             <th colspan="2" data-options="field:'',width:100,halign:'center'"> Created</th>
             <th colspan="2" data-options="field:'',width:100,halign:'center'"> Updated</th>
         </tr>
@@ -448,13 +446,13 @@
 
     function BtnPrint(val, row) {
         if(row.datatable == 1){
-            var detail = "printReturn('"+row.return_no+"','"+row.status+"','"+row.source+"')";
+            var detail = "printReturn('"+row.return_no+"','"+row.status+"')";
             return '<a class="btn btn-primary w-100" onClick="'+detail+'" style="pointer-events: visible; opacity:1;"><i class="fa fa-print"></i> Print</a>';
         }
     }
 
-    function printReturn(return_no, status, source){
-        if(status == "1" || source == "QAS"){
+    function printReturn(return_no, status){
+        if(status == "1"){
             $.messager.prompt('Print', 'Please input the Password', function(r){
                 if (r == "FNC"){
                     window.open('<?= base_url('purchase/purchase_returns/print_return/') ?>'+btoa(return_no));
@@ -704,19 +702,6 @@
         }
     }
 
-    function BtnWms(val, row) {
-        if (row.state == "closed") {
-            if (row.return_date >= "2026-07-02") {
-                var onClick = "sendWms('"+row.return_no+"')";
-                return '<a class="btn btn-primary w-100" style="pointer-events: visible; opacity:1;" target="_blank" onClick="'+onClick+'"><i class="fa fa-database"></i> Send Data</a>';
-            }else{
-                return '-';
-            }
-        }else{
-            return "-";
-        }
-    }
-
     function numberformat(value, row) {
         if (value != null) {
             const formatter = new Intl.NumberFormat('id-ID', {
@@ -763,53 +748,4 @@
             return 'CLOSE';
         }
     };
-
-    function sendWms(return_no){
-        $.messager.confirm('Confirm','Are you sure you want to send data to WMS?', function(r){
-            if (r){
-                Swal.fire({
-                    title: 'Please Wait for Sending Data',
-                    showConfirmButton: false,
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    },
-                });
-
-                $.ajax({
-                    type: "post",
-                    url: "<?= base_url("api/wms/rejection") ?>",
-                    data: {
-                        return_no: return_no
-                    },
-                    dataType: "json",
-                    success: function (msg) {
-                        if(msg.success){
-                            Swal.fire("", msg.message, "success");
-                            // $.ajax({
-                            //     type: "post",
-                            //     url: '<?= base_url('api/wms/gateEntryClosing') ?>',
-                            //     data: {receipt_no: receipt_no},
-                            //     dataType: "json",
-                            //     success: function (si) {
-                            //         $('#dg').datagrid('reload');
-
-                            //         Swal.fire(
-                            //             "Info",
-                            //             msg.message,
-                            //             "success"
-                            //         );
-                            //     }
-                            // });
-                        }else{
-                            Swal.fire("", msg.message, "error");
-                        }
-                    }, error: function(){
-                        Swal.fire("", "Failed to Sending Data WMS", "error");
-                    }
-                });
-            }
-        });
-    }
 </script>

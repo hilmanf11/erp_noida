@@ -17,7 +17,7 @@
 </style> -->
 <table id="dg" class="easyui-datagrid" style="width:100%;" toolbar="#toolbar">
     <thead>
-    <tr>
+        <tr>
             <th rowspan="2" field="ck" checkbox="true"></th>
             <th rowspan="2" data-options="field:'status_po',width:80,align:'center', styler:cellStylerStatus, formatter:cellFormatterStatus">Status</th>
             <th rowspan="2" data-options="field:'supplier_id',width:100,halign:'center'">Supplier ID</th>
@@ -137,7 +137,7 @@
 </div>
 
 <div id="toolbar2" style="height: auto; padding:10px;">
-    <div style="width: 100%; display: grid; grid-template-columns: auto auto auto; grid-gap: 5px; display: flex;">        
+    <div style="width: 100%; display: grid; grid-template-columns: auto auto auto; grid-gap: 5px; display: flex;">
         <fieldset style="width: 100%; border:2px solid #d0d0d0; margin-bottom: 5px; margin-top: 5px; border-radius:4px;">
             <legend><b>Form Detail</b></legend>
             <div style="width: 50%; float: left;">
@@ -177,7 +177,7 @@
 </div>
 
 <div id="toolbar3" style="height: auto; padding:10px;">
-    <div style="width: 100%; display: grid; grid-template-columns: auto auto auto; grid-gap: 5px; display: flex;">        
+    <div style="width: 100%; display: grid; grid-template-columns: auto auto auto; grid-gap: 5px; display: flex;">
         <fieldset style="width: 100%; border:2px solid #d0d0d0; margin-bottom: 5px; margin-top: 5px; border-radius:4px;">
             <legend><b>Form Filter</b></legend>
             <div style="width: 30%; float: left;">
@@ -302,7 +302,7 @@
                 </center>
             </div>
         </fieldset>
-        
+
     </form>
 </div>
 
@@ -366,7 +366,11 @@
             </div>
             <div class="fitem">
                 <span style="width:35%; display:inline-block;">MRP Qty</span>
-                <input style="width:30%;" name="mrp_qty" id="mrp_qty" disabled class="easyui-numberbox">
+                <input style="width:30%;" name="mrp_qty" id="mrp_qty" readonly class="easyui-numberbox">
+            </div>
+            <div class="fitem">
+                <span style="width:35%; display:inline-block;">POR Qty</span>
+                <input style="width:30%;" name="por_qty" id="por_qty" readonly class="easyui-numberbox">
             </div>
             <div class="fitem">
                 <span style="width:35%; display:inline-block;">PO Qty</span>
@@ -486,7 +490,7 @@
 <iframe id="printout" src="" style="width: 100%;" hidden></iframe>
 
 <script>
-    function formula(){
+    function formula() {
         Swal.fire({
             width: 800,
             html: `<div style="text-align:left;">
@@ -514,7 +518,7 @@
                     $(e.data.target).combobox('clear').combobox('textbox').focus();
                 }
             }],
-            onSelect: function(row){
+            onSelect: function(row) {
                 var p_year = $('#mrp_year').combobox('getValue');
 
                 $.ajax({
@@ -522,7 +526,7 @@
                     url: '<?php echo base_url('purchase/purchase_orders/readRevision'); ?>',
                     data: "p_month=" + row.id + "&p_year=" + p_year,
                     dataType: "json",
-                    success: function (response) {
+                    success: function(response) {
                         $("#mrp_revision").textbox('setValue', response.rev);
                     }
                 });
@@ -540,7 +544,7 @@
                     $(e.data.target).combobox('clear').combobox('textbox').focus();
                 }
             }],
-            onSelect: function(row){
+            onSelect: function(row) {
                 var p_month = $('#mrp_month').combobox('getValue');
 
                 $.ajax({
@@ -548,7 +552,7 @@
                     url: '<?php echo base_url('purchase/purchase_orders/readRevision'); ?>',
                     data: "p_month=" + p_month + "&p_year=" + row.id,
                     dataType: "json",
-                    success: function (response) {
+                    success: function(response) {
                         $("#mrp_revision").textbox('setValue', response.rev);
                     }
                 });
@@ -566,7 +570,7 @@
                     $(e.data.target).combobox('clear').combobox('textbox').focus();
                 }
             }],
-            onSelect: function(row){
+            onSelect: function(row) {
                 $('#mrp_item_rm_id').combogrid({
                     url: '<?= base_url('master/item_rm/reads/') ?>' + row.id,
                     panelWidth: 550,
@@ -586,7 +590,7 @@
                             field: 'id',
                             title: 'Part No EBWS',
                             width: 150
-                        },{
+                        }, {
                             field: 'number',
                             title: 'Part No Supplier',
                             width: 200
@@ -628,7 +632,7 @@
         });
     }
 
-    function filterMrp(){
+    function filterMrp() {
         var mrp_month = $("#mrp_month").combobox('getValue');
         var mrp_year = $("#mrp_year").combobox('getValue');
         var mrp_revision = $("#mrp_revision").textbox('getValue');
@@ -636,21 +640,33 @@
         var mrp_item_rm_id = $("#mrp_item_rm_id").combogrid('getValue');
         var mrp_supplier = $("#mrp_supplier").combogrid('getValue');
 
-        if(mrp_supplier != "" || mrp_revision != ""){
-            $('#dg_mrp').datagrid({
-                url: '<?= base_url('purchase/purchase_orders/datatableMrp?mrp_month=') ?>' + btoa(mrp_month) + "&mrp_year=" + btoa(mrp_year) + "&mrp_revision=" + btoa(mrp_revision) + "&mrp_profam=" + btoa(mrp_profam) + "&mrp_supplier=" + btoa(mrp_supplier) + "&mrp_item_rm_id=" + btoa(mrp_item_rm_id),
-                // clientPaging: false,
-                // remoteFilter: true,
-                rownumbers: true,
-                singleSelect: false,
-                fit:true,
-            }).datagrid('enableFilter');
-        }else{
+        if (mrp_supplier != "" || mrp_revision != "") {
+            $.ajax({
+                type: "post",
+                url: "<?= base_url("purchase/purchase_orders/checkSupplier") ?>",
+                data: "supplier_id=" + mrp_supplier,
+                dataType: "json",
+                success: function(response) {
+                    if (response.theme == "success") {
+                        $('#dg_mrp').datagrid({
+                            url: '<?= base_url('purchase/purchase_orders/datatableMrp?mrp_month=') ?>' + btoa(mrp_month) + "&mrp_year=" + btoa(mrp_year) + "&mrp_revision=" + btoa(mrp_revision) + "&mrp_profam=" + btoa(mrp_profam) + "&mrp_supplier=" + btoa(mrp_supplier) + "&mrp_item_rm_id=" + btoa(mrp_item_rm_id),
+                            // clientPaging: false,
+                            // remoteFilter: true,
+                            rownumbers: true,
+                            singleSelect: false,
+                            fit: true,
+                        }).datagrid('enableFilter');
+                    } else {
+                        toastr.error(response.message);
+                    }
+                }
+            });
+        } else {
             toastr.info("Please Select Revision & Supplier");
         }
     }
 
-    function createPo(){
+    function createPo() {
         var mrp_month = $("#mrp_month").combobox('getValue');
         var mrp_year = $("#mrp_year").combobox('getValue');
         var mrp_po_date = $("#mrp_po_date").datebox('getValue');
@@ -684,19 +700,20 @@
                         url: "<?= base_url("purchase/purchase_orders/purchaseOrderNo/" . $id_menu . "/add") ?>",
                         data: "p_month=" + mrp_month + "&p_year=" + mrp_year,
                         dataType: "json",
-                        success: function (po_no) {
+                        success: function(po_no) {
                             requestCreate(rows.length, rows);
+
                             function requestCreate(total, json, number = 1, value = 0) {
                                 if (value < 100) {
-                                    var row = json[number-1];
+                                    var row = json[number - 1];
                                     value = Math.floor((number / total) * 100);
 
                                     $.ajax({
                                         method: 'post',
                                         url: '<?= base_url('purchase/purchase_orders/create') ?>',
                                         data: {
-                                            po_no : po_no.code,
-                                            po_date : mrp_po_date,
+                                            po_no: po_no.code,
+                                            po_date: mrp_po_date,
                                             data: row
                                         },
                                         success: function(result) {
@@ -759,7 +776,7 @@
 
     // function confirmPo() {
     //     $("#dlg_confirm").dialog('open');
-        
+
     //     $('#dg_confirm').datagrid({
     //         url: '<?= base_url('purchase/purchase_orders/datatableConfirm') ?>',
     //         clientPaging: false,
@@ -782,8 +799,8 @@
     //         }
     //     });
     // }
-    
-    function details(po_no, supplier, note, state, push="", email = "", email_cc = "") {
+
+    function details(po_no, supplier, note, state, push = "", email = "", email_cc = "") {
         $("#dlg_purchase_order").dialog('open');
 
         $("#d_po_no").textbox('setValue', po_no);
@@ -791,18 +808,18 @@
         $("#d_state").textbox('setValue', state);
         $("#d_note").textbox('setValue', note);
         // $("#d_product_family").textbox('setValue', product_family);
-        
-        if(push == ""){
+
+        if (push == "") {
             $("#pushData").hide();
             $("#detailEdit").show();
             $("#sendMail").hide();
             $("#sendBlink").hide();
-        }else if(push == "push"){
+        } else if (push == "push") {
             $("#pushData").show();
             $("#detailEdit").hide();
             $("#sendMail").hide();
             $("#sendBlink").hide();
-        }else{
+        } else {
             $("#pushData").hide();
             $("#detailEdit").hide();
             $("#sendMail").show();
@@ -816,21 +833,21 @@
 
         var revision = $("#filter_revision").combobox('getValue');
         var filter_item_rm = $("#filter_item_rm").combogrid('getValue');
-        
+
         $('#dg_purchase_order').datagrid({
             url: '<?= base_url('purchase/purchase_orders/datatableDetails/') ?>' + btoa(po_no) + "/" + revision + "?filter_item_rm=" + btoa(filter_item_rm),
             clientPaging: false,
             remoteFilter: true,
             rownumbers: true,
             singleSelect: false,
-            fit:true,
+            fit: true,
         });
     }
 
-    function detailEdit(){
+    function detailEdit() {
         var row = $('#dg_purchase_order').datagrid('getSelected');
         if (row) {
-            if(row.status == 0){
+            if (row.status == 0) {
                 $("#po_no").combogrid({
                     url: '<?= base_url('purchase/purchase_orders/readPo/') ?>' + row.p_month + '/' + row.p_year + '/' + row.revision + '/' + row.item_family_id,
                     panelWidth: 650,
@@ -854,7 +871,7 @@
                             width: 150
                         }]
                     ],
-                    onSelect: function(index, po){
+                    onSelect: function(index, po) {
                         $("#supplier_id").textbox("setValue", po.supplier_id);
                         $("#supplier_no").textbox("setValue", po.supplier_no);
                         $("#supplier_name").textbox("setValue", po.supplier_name);
@@ -864,17 +881,17 @@
                 $('#frm_insert').form('load', row);
 
                 url_save = '<?= base_url('purchase/purchase_orders/updateDetails') ?>?id=' + btoa(row.id);
-                
-                if(row.approved_to == "" || row.approved_to == null){
-                    $.messager.prompt('Edit Data PO', 'Data has been Approved, Please input Password to Edit', function(r){
-                        if (r == "EDITPO"){
+
+                if (row.approved_to == "" || row.approved_to == null) {
+                    $.messager.prompt('Edit Data PO', 'Data has been Approved, Please input Password to Edit', function(r) {
+                        if (r == "EDITPO") {
                             $('#dlg_insert').dialog('open');
                         }
                     });
-                }else{
+                } else {
                     $('#dlg_insert').dialog('open');
                 }
-            }else{
+            } else {
                 toastr.error("Cannot Update because the Delivery Confirmation has been Added");
             }
         } else {
@@ -930,7 +947,7 @@
     //     }
     // }
 
-    function sendMail(){
+    function sendMail() {
         // toastr.info("Not Available");
         $("#dlg_mail").dialog('open');
         $("#attachment").filebox('clear');
@@ -938,16 +955,16 @@
         $("#mail_format").combobox("clear");
 
         $("#mail_format").combobox({
-            onChange: function(val){
+            onChange: function(val) {
                 $.ajax({
                     type: "post",
                     url: "<?= base_url("planning/config_mail/reads/purchase_orders/") ?>" + val,
                     dataType: "json",
-                    success: function (response) {
-                        if(response == null){
+                    success: function(response) {
+                        if (response == null) {
                             toastr.info("Not Available format, please input in master Setting Mail");
                             $("#mail_message").html("");
-                        }else{
+                        } else {
                             $("#mail_message").html(response.description);
                         }
                     }
@@ -956,9 +973,9 @@
         })
     }
 
-    function createsd(po_no){
-        $.messager.confirm('Generate', 'Are you sure, you want generate this data', function(r){
-            if (r){
+    function createsd(po_no) {
+        $.messager.confirm('Generate', 'Are you sure, you want generate this data', function(r) {
+            if (r) {
                 Swal.fire({
                     title: 'Please Wait for Generating Data',
                     showConfirmButton: false,
@@ -977,7 +994,7 @@
                     success: function(rows) {
                         Swal.close();
 
-                        if(rows['total'] > 0){
+                        if (rows['total'] > 0) {
                             requestData(rows['total'], rows);
 
                             function requestData(total, json, number = 1, value = 0, success = 1, failed = 1) {
@@ -1011,7 +1028,7 @@
                                     });
                                 }
                             }
-                        }else{
+                        } else {
                             toastr.warning("Please Generate Purchase Request & Purchase Order First");
                         }
                     }
@@ -1059,9 +1076,10 @@
                     });
 
                     requestDelete(rows.length, rows);
+
                     function requestDelete(total, json, number = 1, value = 0) {
                         if (value < 100) {
-                            var row = json[number-1];
+                            var row = json[number - 1];
                             value = Math.floor((number / total) * 100);
 
                             $.ajax({
@@ -1176,16 +1194,19 @@
         window.location.reload();
     }
 
-    function updateNote(newData, old){
+    function updateNote(newData, old) {
         var po_no = $("#d_po_no").textbox('getValue');
 
-        if(old != "" && old != null && old != "null"){
+        if (old != "" && old != null && old != "null") {
             $.ajax({
                 type: "post",
                 url: "<?= base_url('purchase/purchase_orders/updateNote') ?>",
-                data: {po_no: po_no, note: newData},
+                data: {
+                    po_no: po_no,
+                    note: newData
+                },
                 dataType: "json",
-                success: function (result) {
+                success: function(result) {
                     if (result.theme == "success") {
                         toastr.success(result.message, result.title);
                     } else {
@@ -1197,15 +1218,19 @@
         }
     }
 
-    function syncPrice(id, price, price_old){
-        $.messager.prompt('Sync Price to '+price, 'Please input Password for Sync Price', function(r){
-            if (r == "SYNC"){
+    function syncPrice(id, price, price_old) {
+        $.messager.prompt('Sync Price to ' + price, 'Please input Password for Sync Price', function(r) {
+            if (r == "SYNC") {
                 $.ajax({
                     type: "post",
                     url: "<?= base_url('purchase/purchase_orders/updatePrice') ?>",
-                    data: {id: id, price: price, price_old: price_old},
+                    data: {
+                        id: id,
+                        price: price,
+                        price_old: price_old
+                    },
                     dataType: "json",
-                    success: function (result) {
+                    success: function(result) {
                         if (result.theme == "success") {
                             toastr.success(result.message, result.title);
                         } else {
@@ -1218,15 +1243,18 @@
         });
     }
 
-    function statusChange(id, sts){
-        $.messager.prompt('Password!!', 'Change Status Purchase Orders', function(r){
-            if (r == "CHANGE"){
+    function statusChange(id, sts) {
+        $.messager.prompt('Password!!', 'Change Status Purchase Orders', function(r) {
+            if (r == "CHANGE") {
                 $.ajax({
                     type: "post",
                     url: "<?= base_url('purchase/purchase_orders/updateStatus') ?>",
-                    data: {id: id, status: sts},
+                    data: {
+                        id: id,
+                        status: sts
+                    },
                     dataType: "json",
-                    success: function (result) {
+                    success: function(result) {
                         if (result.theme == "success") {
                             toastr.success(result.message, result.title);
                         } else {
@@ -1259,17 +1287,17 @@
     }
 
     $(function() {
-    	$("#add").html("Convert MRP to PO");
-        
+        $("#add").html("Convert MRP to PO");
+
         $('#dg').datagrid({
             pagination: true,
             clientPaging: false,
             remoteFilter: true,
             rownumbers: true,
             singleSelect: true,
-            fit:true,
-            rowStyler: function(index,row){
-                if (row.color == ""){
+            fit: true,
+            rowStyler: function(index, row) {
+                if (row.color == "") {
                     return 'background-color:#FFD2D2;';
                 }
             }
@@ -1295,14 +1323,14 @@
         filter();
 
         $("#qty").numberbox({
-            onChange: function(qty){
+            onChange: function(qty) {
                 var price = $("#price").numberbox("getValue");
                 $("#total").numberbox("setValue", (parseInt(qty) * parseInt(price)));
             }
         });
 
         $("#price").numberbox({
-            onChange: function(price){
+            onChange: function(price) {
                 var qty = $("#qty").numberbox("getValue");
                 $("#total").numberbox("setValue", (parseInt(qty) * parseInt(price)));
             }
@@ -1313,12 +1341,21 @@
                 text: 'Save',
                 iconCls: 'icon-ok',
                 handler: function() {
+                    var por_qty = $("#por_qty").numberbox('getValue');
+                    var mrp_qty = $("#mrp_qty").numberbox('getValue');
+                    var qty = $("#qty").numberbox('getValue');
+
+                    if (parseInt(por_qty) > parseInt(qty)) {
+                        toastr.error("POR qty > Qty PO");
+                        return false;
+                    }
+
                     $('#frm_insert').form('submit', {
                         url: url_save,
                         onSubmit: function() {
-                            if($(this).form('validate') === true){
+                            if ($(this).form('validate') === true) {
                                 $('#dlg_insert').dialog('close');
-                                
+
                                 Swal.fire({
                                     title: 'Please Wait...',
                                     showConfirmButton: false,
@@ -1328,7 +1365,7 @@
                                         Swal.showLoading();
                                     },
                                 });
-                            }else{
+                            } else {
                                 return $(this).form('validate');
                             }
                         },
@@ -1374,11 +1411,11 @@
                     $(e.data.target).combobox('clear').combobox('textbox').focus();
                 }
             }],
-            onSelect: function(month){
+            onSelect: function(month) {
                 var filter_year = $("#filter_year").combobox('getValue');
                 var filter_revision = $("#filter_revision").combobox('getValue');
 
-                if(filter_year != "" && filter_revision != ""){
+                if (filter_year != "" && filter_revision != "") {
                     componentCheck(month.id, filter_year, filter_revision);
                 }
             }
@@ -1395,11 +1432,11 @@
                     $(e.data.target).combobox('clear').combobox('textbox').focus();
                 }
             }],
-            onSelect: function(year){
+            onSelect: function(year) {
                 var filter_month = $("#filter_month").combobox('getValue');
                 var filter_revision = $("#filter_revision").combobox('getValue');
 
-                if(filter_month != "" && filter_revision != ""){
+                if (filter_month != "" && filter_revision != "") {
                     componentCheck(filter_month, year, filter_revision);
                 }
             }
@@ -1416,11 +1453,11 @@
                     $(e.data.target).combobox('clear').combobox('textbox').focus();
                 }
             }],
-            onSelect: function(revision){
+            onSelect: function(revision) {
                 var filter_month = $("#filter_month").combobox('getValue');
                 var filter_year = $("#filter_year").combobox('getValue');
 
-                if(filter_month != "" && filter_year != ""){
+                if (filter_month != "" && filter_year != "") {
                     componentCheck(filter_month, filter_year, revision.id);
                 }
             }
@@ -1437,7 +1474,7 @@
                     $(e.data.target).combobox('clear').combobox('textbox').focus();
                 }
             }],
-            onSelect: function(row){
+            onSelect: function(row) {
                 $('#filter_item_rm').combogrid({
                     url: '<?= base_url('master/item_rm/reads/') ?>' + row.id,
                     panelWidth: 550,
@@ -1649,10 +1686,10 @@
         return "<b>" + formatter.format(value) + "</b>";
     }
 
-    function numberformatPrice(value, row){
-        if(row.currency == "INR"){
+    function numberformatPrice(value, row) {
+        if (row.currency == "INR") {
             var digit = 4;
-        }else{
+        } else {
             var digit = 5;
         }
 
@@ -1663,13 +1700,13 @@
         return "<b>" + formatter.format(value) + "</b>";
     }
 
-    function numberformatPrice2(value, row){
-        if(row.supplier_type == "LOCAL"){
+    function numberformatPrice2(value, row) {
+        if (row.supplier_type == "LOCAL") {
             var decimal = 2;
-        }else{
+        } else {
             var decimal = 5;
         }
-        
+
         const formatter = new Intl.NumberFormat('ja-JP', {
             minimumFractionDigits: decimal
         });
@@ -1678,91 +1715,91 @@
     }
 
     function BtnDetail(val, row) {
-        var details = "details('"+row.po_no+"','"+row.supplier_name+"','"+row.note+"','"+row.state+"')";
-        return '<a class="btn btn-primary w-100" style="pointer-events: visible; opacity:1;" onClick="'+details+'"><i class="fa fa-eye"></i> View</a>';
+        var details = "details('" + row.po_no + "','" + row.supplier_name + "','" + row.note + "','" + row.state + "')";
+        return '<a class="btn btn-primary w-100" style="pointer-events: visible; opacity:1;" onClick="' + details + '"><i class="fa fa-eye"></i> View</a>';
     }
 
     function BtnConfirm(val, row) {
-        var confirm = "confirm('"+row.request_no+"')";
-        return '<a class="btn btn-success w-100" style="pointer-events: visible; opacity:1;" onClick="'+confirm+'"><i class="fa fa-check"></i> Confirm</a>';
+        var confirm = "confirm('" + row.request_no + "')";
+        return '<a class="btn btn-success w-100" style="pointer-events: visible; opacity:1;" onClick="' + confirm + '"><i class="fa fa-check"></i> Confirm</a>';
     }
 
     function BtnPrint(val, row) {
-        if(row.approved_to == ""){
-            return '<a class="btn btn-primary w-100" target="_blank" href="<?= base_url('purchase/purchase_orders/print_po/') ?>'+btoa(row.po_no)+'" style="pointer-events: visible; opacity:1;"><i class="fa fa-print"></i> Print</a>';
-        }else{
+        if (row.approved_to == "") {
+            return '<a class="btn btn-primary w-100" target="_blank" href="<?= base_url('purchase/purchase_orders/print_po/') ?>' + btoa(row.po_no) + '" style="pointer-events: visible; opacity:1;"><i class="fa fa-print"></i> Print</a>';
+        } else {
             return "-";
         }
     }
 
     function BtnCreateSd(val, row) {
-        if(row.print_sd == 0){
-            var confirm = "createsd('"+row.po_no+"')";
-            return '<a class="btn btn-success w-100" style="pointer-events: visible; opacity:1;" onClick="'+confirm+'"><i class="fa fa-plus"></i> Create</a>';
+        if (row.print_sd == 0) {
+            var confirm = "createsd('" + row.po_no + "')";
+            return '<a class="btn btn-success w-100" style="pointer-events: visible; opacity:1;" onClick="' + confirm + '"><i class="fa fa-plus"></i> Create</a>';
         } else {
             return '-';
         }
     }
 
     function BtnPrintSd(val, row) {
-        if(row.print_sd > 0){
-            return '<a class="btn btn-primary w-100" target="_blank" href="<?= base_url('purchase/purchase_orders/print_delivery/') ?>'+btoa(row.po_no)+'" style="pointer-events: visible; opacity:1;"><i class="fa fa-print"></i> Print</a>';
+        if (row.print_sd > 0) {
+            return '<a class="btn btn-primary w-100" target="_blank" href="<?= base_url('purchase/purchase_orders/print_delivery/') ?>' + btoa(row.po_no) + '" style="pointer-events: visible; opacity:1;"><i class="fa fa-print"></i> Print</a>';
         } else {
             return '-';
         }
     }
-    
+
     function BtnPush(val, row) {
-        if(row.push == "OK") {
+        if (row.push == "OK") {
             return 'DONE';
-        // } else if ((row.approved_to == null || row.approved_to == "") && row.email_status == "SEND") {
+            // } else if ((row.approved_to == null || row.approved_to == "") && row.email_status == "SEND") {
         } else if (row.approved_to == null || row.approved_to == "") {
-            var details = "details('"+row.po_no+"','"+row.supplier_name+"','"+row.note+"','"+row.state+"','push')";
-            return '<a class="btn btn-danger w-100" style="pointer-events: visible; opacity:1;" onClick="'+details+'"><i class="fa fa-share"></i> Push</a>';
+            var details = "details('" + row.po_no + "','" + row.supplier_name + "','" + row.note + "','" + row.state + "','push')";
+            return '<a class="btn btn-danger w-100" style="pointer-events: visible; opacity:1;" onClick="' + details + '"><i class="fa fa-share"></i> Push</a>';
         } else {
             return '-';
         }
     }
 
     function BtnSend(val, row) {
-        if(row.email_status == "SENT"){
+        if (row.email_status == "SENT") {
             return "-";
         } else if (row.approved_to == null || row.approved_to == "") {
-            var details = "details('"+row.po_no+"','"+row.supplier_name+"','"+row.note+"','"+row.state+"','mail','"+row.email+"')";
-            return '<a class="btn btn-success w-100" style="pointer-events: visible; opacity:1;" onClick="'+details+'"><i class="fa fa-send"></i> Send</a>';
+            var details = "details('" + row.po_no + "','" + row.supplier_name + "','" + row.note + "','" + row.state + "','mail','" + row.email + "')";
+            return '<a class="btn btn-success w-100" style="pointer-events: visible; opacity:1;" onClick="' + details + '"><i class="fa fa-send"></i> Send</a>';
         } else {
             return '-';
         }
     }
 
     function BtnSync(val, row) {
-        if(val == "SYNC"){
-            var details = "syncPrice('"+row.id+"','"+row.new_price+"','"+row.price+"')";
-            return '<a class="btn btn-success w-100" style="pointer-events: visible; opacity:1;" onClick="'+details+'"><i class="fa fa-money"></i> Sync</a>';
+        if (val == "SYNC") {
+            var details = "syncPrice('" + row.id + "','" + row.new_price + "','" + row.price + "')";
+            return '<a class="btn btn-success w-100" style="pointer-events: visible; opacity:1;" onClick="' + details + '"><i class="fa fa-money"></i> Sync</a>';
         } else {
             return '-';
         }
     }
 
     function BtnStatus(val, row) {
-        if(row.status == 0){
-            var details = "statusChange('"+row.id+"','"+row.status+"')";
-            return '<a class="btn btn-success w-100" style="pointer-events: visible; opacity:1;" onClick="'+details+'">OPEN</a>';
+        if (row.status == 0) {
+            var details = "statusChange('" + row.id + "','" + row.status + "')";
+            return '<a class="btn btn-success w-100" style="pointer-events: visible; opacity:1;" onClick="' + details + '">OPEN</a>';
             // return '<a class="btn btn-success w-100" style="pointer-events: visible; opacity:1;">OPEN</a>';
-        } else if(row.complete == 1) {
-            var details = "statusChange('"+row.id+"','"+row.status+"')";
-            return '<a class="btn btn-warning w-100" style="pointer-events: visible; opacity:1;" onClick="'+details+'">COMPLETE</a>';
+        } else if (row.complete == 1) {
+            var details = "statusChange('" + row.id + "','" + row.status + "')";
+            return '<a class="btn btn-warning w-100" style="pointer-events: visible; opacity:1;" onClick="' + details + '">COMPLETE</a>';
             // return '<a class="btn btn-danger w-100" style="pointer-events: visible; opacity:1;">CLOSE</a>';
-        } else if(row.status == 1) {
-            var details = "statusChange('"+row.id+"','"+row.status+"')";
-            return '<a class="btn btn-danger w-100" style="pointer-events: visible; opacity:1;" onClick="'+details+'">CLOSE</a>';
+        } else if (row.status == 1) {
+            var details = "statusChange('" + row.id + "','" + row.status + "')";
+            return '<a class="btn btn-danger w-100" style="pointer-events: visible; opacity:1;" onClick="' + details + '">CLOSE</a>';
             // return '<a class="btn btn-danger w-100" style="pointer-events: visible; opacity:1;">CLOSE</a>';
         }
     }
 
     function btnTerms(val, row) {
-        var details = "terms('"+row.po_no+"')";
-        return '<a class="btn btn-primary w-100" style="pointer-events: visible; opacity:1;" onClick="'+details+'"><i class="fa fa-edit"></i> Edit</a>';
+        var details = "terms('" + row.po_no + "')";
+        return '<a class="btn btn-primary w-100" style="pointer-events: visible; opacity:1;" onClick="' + details + '"><i class="fa fa-edit"></i> Edit</a>';
     }
 
     function terms(po_no) {
@@ -1774,25 +1811,25 @@
             url: "<?= base_url('purchase/purchase_orders/readTerm') ?>",
             data: "po_no=" + po_no,
             dataType: "json",
-            success: function (json) {
-                if(json.terms == null){
-                    $(".summernote").summernote("code", 
-                        "<table>" + 
-                            "<tr>" +
-                                "<td width='100'>Delivery</td>" +
-                                "<td width='200'></td>" +
-                            "</tr>" + 
-                            "<tr>" +
-                                "<td>Payment Term</td>" +
-                                "<td></td>" +
-                            "</tr>" + 
-                            "<tr>" +
-                                "<td>Note</td>" +
-                                "<td></td>" +
-                            "</tr>" + 
+            success: function(json) {
+                if (json.terms == null) {
+                    $(".summernote").summernote("code",
+                        "<table>" +
+                        "<tr>" +
+                        "<td width='100'>Delivery</td>" +
+                        "<td width='200'></td>" +
+                        "</tr>" +
+                        "<tr>" +
+                        "<td>Payment Term</td>" +
+                        "<td></td>" +
+                        "</tr>" +
+                        "<tr>" +
+                        "<td>Note</td>" +
+                        "<td></td>" +
+                        "</tr>" +
                         "</table>"
                     );
-                }else{
+                } else {
                     $(".summernote").summernote("code", json.terms);
                 }
             }
@@ -1802,7 +1839,7 @@
     function cellStylerApproval(value, row, index) {
         if (row.approved_to == null) {
             return 'background: #FF5F5F; color:white;';
-        } else if(row.approved_to == ""){
+        } else if (row.approved_to == "") {
             return 'background: #53D636; color:white;';
         } else {
             return 'background: #FF5F5F; color:white;';
@@ -1812,7 +1849,7 @@
     function cellFormatterApproval(val, row) {
         if (row.approved_to == null) {
             return 'Not Setting';
-        } else if(row.approved_to == ""){
+        } else if (row.approved_to == "") {
             return 'Approved';
         } else {
             return 'Checking';
@@ -1834,7 +1871,7 @@
             return 'Delivered';
         }
     };
-    
+
     function cellStylerStatus(value, row, index) {
         if (value == 0) {
             return 'background: #53D636; color:white;';
@@ -1854,7 +1891,7 @@
     function cellStylerDelivery(value, row, index) {
         if (value == 0) {
             return 'background: #ffb26e; color:white;';
-        } else if(value == 1) {
+        } else if (value == 1) {
             return 'background: #53D636; color:white;';
         } else {
             return '-';
@@ -1864,7 +1901,7 @@
     function cellFormatterDelivery(value, row) {
         if (value == 0) {
             return 'Pending';
-        } else if(value == 1) {
+        } else if (value == 1) {
             return 'Delivered';
         } else {
             return '-';
@@ -1874,9 +1911,9 @@
     function cellStylerConfirm(value, row, index) {
         if (value == null) {
             return 'background: #FF5F5F; color:white;';
-        } else if(value == "Pending"){
+        } else if (value == "Pending") {
             return 'background: #AB6F2B; color:white;';
-        }else{
+        } else {
             return 'background: #53D636; color:white;';
         }
     }
@@ -1884,7 +1921,7 @@
     function cellFormatterConfirm(value, row) {
         if (value == null) {
             return 'Not Confirm';
-        } else if(value == "Pending"){
+        } else if (value == "Pending") {
             return 'Pending';
         } else {
             return 'Confirm';

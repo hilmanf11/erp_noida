@@ -53,7 +53,7 @@ class Report_rejections extends CI_Controller
                 JOIN purchase_order_receipts b ON a.receipt_id = b.receipt_id
                 GROUP BY b.item_rm_id) c", 'a.id = c.item_rm_id', 'left');
             $this->db->join("(SELECT item_rm_id, SUM(qty) as scrap FROM scraps WHERE source = 'Vendor' GROUP BY item_rm_id) d", 'a.id = d.item_rm_id', 'left');
-            $this->db->join("(SELECT item_rm_id, SUM(qty) as qty_return FROM purchase_returns WHERE source in ('SCRAP','REJECT') GROUP BY item_rm_id) e", 'a.id = e.item_rm_id', 'left');
+            $this->db->join("(SELECT item_rm_id, SUM(qty) as qty_return FROM purchase_returns GROUP BY item_rm_id) e", 'a.id = e.item_rm_id', 'left');
             $this->db->where('a.item_category_id', "C01");
             $this->db->group_by('a.id');
             $this->db->order_by('b.number', 'ASC');

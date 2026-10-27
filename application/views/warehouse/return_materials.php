@@ -177,7 +177,6 @@
                             mode: 'remote',
                             fitColumns: true,
                             prompt: 'Choose Part No',
-                            loadMsg: 'Please Wait...',
                             columns: [
                                 [{
                                     field: 'id',
@@ -211,13 +210,8 @@
                                     index: rowIndex,
                                     field: 'mpq'
                                 });
-                                var ed3 = dg.datagrid('getEditor', {
-                                    index: rowIndex,
-                                    field: 'wip'
-                                });
                                 $(ed.target).textbox('setValue', rows.number);
                                 $(ed2.target).textbox('setValue', rows.mpq);
-                                $(ed3.target).textbox('setValue', rows.wip);
                             }
                         }
                     }
@@ -244,17 +238,6 @@
                         }
                     }
                 }, {
-                    field: 'wip',
-                    width: 80,
-                    halign: 'center',
-                    title: "WIP",
-                    editor: {
-                        type: 'numberbox',
-                        options: {
-                            readonly: true
-                        }
-                    }
-                }, {
                     field: 'qty',
                     width: 80,
                     halign: 'center',
@@ -262,22 +245,7 @@
                     editor: {
                         type: 'numberbox',
                         options: {
-                            required: true,
-                            onChange: function(val){
-                                var dg = $('#dg2');
-                                var row = dg.datagrid('getSelected');
-                                var rowIndex = dg.datagrid('getRowIndex', row);
-
-                                var ed1 = dg.datagrid('getEditor', {index: rowIndex, field: 'wip'});
-                                var ed2 = dg.datagrid('getEditor', {index: rowIndex, field: 'qty'});
-
-                                var wip = $(ed1.target).numberbox('getValue');
-
-                                if(parseInt(val) >= parseInt(wip)){
-                                    toastr.info("Qty more big then WIP qty");
-                                    $(ed2.target).numberbox('setValue', 0);
-                                }
-                            }
+                            required: true
                         }
                     }
                 }, {

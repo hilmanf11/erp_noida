@@ -123,8 +123,6 @@ class Purchase_request_services extends CI_Controller
         $filter_request_no = $this->input->get('filter_request_no');
         $filter_request_name = $this->input->get('filter_request_name');
         $filter_item_rm = $this->input->get('filter_item_rm');
-        $filter_status_po = $this->input->get('filter_status_po');
-        $filter_status_approval = $this->input->get('filter_status_approval');
 
         $page = $this->input->post('page');
         $rows = $this->input->post('rows');
@@ -152,13 +150,6 @@ class Purchase_request_services extends CI_Controller
             if($filter_request_name != ""){
                 $this->db->like('a.request_name', $filter_request_name);
             }
-            if($filter_status_approval != ""){
-                if($filter_status_approval == "CHECKING"){
-                    $this->db->where("(a.approved_to != '' and a.approved_to is not null)");
-                }else{
-                    $this->db->where("(a.approved_to = '' or a.approved_to is null)");
-                }
-            }
             $this->db->like('a.item_name', $filter_item_rm);
             $this->db->group_by('a.request_no');
             $this->db->order_by('a.request_no', 'DESC');
@@ -170,7 +161,7 @@ class Purchase_request_services extends CI_Controller
             $records = $this->db->get()->result_array();
             foreach ($records as $record) {
                 $request_no = $record['request_no'];
-                $purchase_order_other = $this->crud->query("SELECT a.request_no, a.po_no, COUNT(a.id) as total_po FROM purchase_order_services a WHERE a.request_no='$request_no' and a.item_name like '%$filter_item_rm%' GROUP BY a.request_no");
+                $purchase_order_other = $this->crud->query("SELECT a.request_no, COUNT(a.id) as total_po FROM purchase_order_services a WHERE a.request_no='$request_no' and a.item_name like '%$filter_item_rm%' GROUP BY a.request_no");
 
                 if(@$purchase_order_other[0]->total_po == $record['total_pr']){
                     $status = 1;
@@ -178,56 +169,34 @@ class Purchase_request_services extends CI_Controller
                     $status = 0;
                 }
 
-                if($filter_status_po != "" && $filter_status_po != $status){
-                    //
-                }else{
-                    $arr[] = array(
-                        "id" => $record['request_no'],
-                        "request_no" => $record['request_no'],
-                        "request_date" => $record['request_date'],
-                        "expected_date" => $record['expected_date'],
-                        "request_name" => $record['request_name'],
-                        "po_no" => @$purchase_order_other[0]->po_no,
-                        "qty" => $record['qty'],
-                        "status" => $status,
-                        "state" => "closed",
-                        "datatable" => 1
-                    );
-                }
+                $arr[] = array(
+                    "id" => $record['request_no'],
+                    "request_no" => $record['request_no'],
+                    "request_date" => $record['request_date'],
+                    "expected_date" => $record['expected_date'],
+                    "request_name" => $record['request_name'],
+                    "qty" => $record['qty'],
+                    "status" => $status,
+                    "state" => "closed",
+                    "datatable" => 1
+                );
             }
             
             $result['total'] = $totalRows;
             $result = array_merge($result, ['rows' => @$arr]);
             echo json_encode($result);
         } else {
-            $this->db->select("a.*, d.po_no, b.name as item_family_name, c.name as item_category_name, e.number as asset_code, e.created_date as asset_date, (CASE WHEN c.type = 'ASSET' THEN 'YES' ELSE 'NO' END) as asset_type");
+            $this->db->select('a.*, d.po_no, b.name as item_family_name');
             $this->db->from('purchase_request_services a');
             $this->db->join('item_familys b', 'a.item_family_id = b.id', 'left');
-            $this->db->join('item_categories c', "b.item_category_id = c.id");
-            $this->db->join('purchase_order_services d', 'a.request_no = d.request_no', 'left');
-            $this->db->join('assets e', 'a.request_no = e.request_no', 'left');
+            $this->db->join('purchase_order_services d', 'a.request_no = d.request_no and a.item_name = d.item_name', 'left');
             $this->db->where('a.deleted', 0);
             if ($filter_from != "" or $filter_to != "") {
                 $this->db->where('a.request_date >=', $filter_from);
                 $this->db->where('a.request_date <=', $filter_to);
             }
-            if($filter_status_approval != ""){
-                if($filter_status_approval == "CHECKING"){
-                    $this->db->where("(a.approved_to != '' and a.approved_to is not null)");
-                }else{
-                    $this->db->where("(a.approved_to = '' or a.approved_to is null)");
-                }
-            }
-            if($filter_status_po != ""){
-                if($filter_status_approval == "0"){
-                    $this->db->where("d.po_no is null");
-                }else{
-                    $this->db->where("d.po_no is not null");
-                }
-            }
             $this->db->where('a.request_no', $id);
             $this->db->like('a.item_name', $filter_item_rm);
-            $this->db->group_by('a.id');
             $this->db->order_by('a.id', 'ASC');
             $records = $this->db->get()->result_array();
             echo json_encode($records);
@@ -426,9 +395,9 @@ class Purchase_request_services extends CI_Controller
                                             Sec-16, Noida-201301, UP, INDIA<br>
                                             GST No : 09AAFCE7558R1ZN, <br>
                                             CIN No: U35999UP2019PTC124726<br><br>
-                                            <b>Factory</b> :  UNIT NO 3, PLOT NO- B-9, ECOTECH EXTENSION<br>
-                                            GRATER NOIDA, KASNA, 201306<br>
-                                            GST NO : 09AAFCE7558R1ZN
+                                            <b>Factory</b> :  A-47 (A) , Industrial Area,Khuskhera<br>
+                                            Bhiwadi, Alwar Rajasthan 301019 INDIA<br>
+                                            GST NO : 08AAFCE7558R1ZP
                                         </td>
                                         <th width="100" style="text-align:right;"><img src="' . $config->favicon . '" width="150"/></th>
                                     </tr>
@@ -451,7 +420,7 @@ class Purchase_request_services extends CI_Controller
                                         <tr>
                                             <td width="50">Plant</td>
                                             <td width="10">:</td>
-                                            <td><b>02 - Noida</b></td>
+                                            <td><b>01 - Bhiwadi</b></td>
                                         </tr>
                                         <tr>
                                             <td width="50">Revision</td>
@@ -536,19 +505,15 @@ class Purchase_request_services extends CI_Controller
         $filter_request_no = $this->input->get('filter_request_no');
         $filter_request_name = $this->input->get('filter_request_name');
         $filter_item_rm = $this->input->get('filter_item_rm');
-        $filter_status_po = $this->input->get('filter_status_po');
-        $filter_status_approval = $this->input->get('filter_status_approval');
 
         //Config
         $this->db->select('*');
         $this->db->from('config');
         $config = $this->db->get()->row();
         
-        $this->db->select("a.*, e.po_no, b.name as item_family_name, c.name as item_category_name, d.number as asset_code, d.created_date as asset_date, (CASE WHEN c.type = 'ASSET' THEN 'YES' ELSE 'NO' END) as asset_type");
+        $this->db->select('a.*, e.po_no, b.name as item_family_name');
         $this->db->from('purchase_request_services a');
         $this->db->join('item_familys b', 'a.item_family_id = b.id', 'left');
-        $this->db->join('item_categories c', "b.item_category_id = c.id");
-        $this->db->join('assets d', 'a.request_no = d.request_no', 'left');
         $this->db->join('purchase_order_services e', 'a.request_no = e.request_no and a.item_name = e.item_name', 'left');
         $this->db->where('a.deleted', 0);
         if(!in_array($this->session->username, ["PURCHASE-03", "Purchase-01", "PURCHASE-02", "admin", "hariom_bhardwaj", "ITADMIN", "Accounts01"])){
@@ -563,20 +528,6 @@ class Purchase_request_services extends CI_Controller
         }
         if($filter_request_name != ""){
             $this->db->like('a.request_name', $filter_request_name);
-        }
-        if($filter_status_approval != ""){
-            if($filter_status_approval == "CHECKING"){
-                $this->db->where("(a.approved_to != '' and a.approved_to is not null)");
-            }else{
-                $this->db->where("(a.approved_to = '' or a.approved_to is null)");
-            }
-        }
-        if($filter_status_po != ""){
-            if($filter_status_approval == "0"){
-                $this->db->where("e.po_no is null");
-            }else{
-                $this->db->where("e.po_no is not null");
-            }
         }
         $this->db->like('a.item_name', $filter_item_rm);
         $this->db->order_by('a.request_no', 'DESC');
@@ -607,22 +558,17 @@ class Purchase_request_services extends CI_Controller
             <table id="customers" border="1">
             <tr>
                 <th width="20">No</th>
-                <th>Status PO</th>
-                <th>Status Approval</th>
                 <th>Request No</th>
                 <th>Request Date</th>
                 <th>Request Name</th>
                 <th>Expected Date</th>
                 <th>Description of Service</th>
                 <th>Product Family</th>
-                <th>Category</th>
-                <th>Asset Type</th>
-                <th>Asset Code</th>
-                <th>Asset Date</th>
                 <th>Qty</th>
                 <th>Currency</th>
                 <th>Est. Price</th>
                 <th>Total</th>
+                <th>Status</th>
                 <th>PO No</th>
                 <th>Remarks</th>
                 <th>Created By</th>
@@ -638,29 +584,19 @@ class Purchase_request_services extends CI_Controller
             } else {
                 $status = "CONVERTED";
             }
-            if (empty($data['approved_to'])) {
-                $status_approval = "APPROVED";
-            } else {
-                $status_approval = "CHECKING";
-            }
             $html .= '<tr>
                         <td style="text-align:center">' . $no . '</td>
-                        <td>' . $status . '</td>
-                        <td>' . $status_approval . '</td>
                         <td>' . $data['request_no'] . '</td>
                         <td>' . $data['request_date'] . '</td>
-                        <td>' . $data['request_name'] . '</td>
                         <td>' . $data['expected_date'] . '</td>
+                        <td>' . $data['request_name'] . '</td>
                         <td>' . $data['item_name'] . '</td>
                         <td>' . $data['item_family_name'] . '</td>
-                        <td>' . $data['item_category_name'] . '</td>
-                        <td>' . $data['asset_type'] . '</td>
-                        <td>' . $data['asset_code'] . '</td>
-                        <td>' . $data['asset_date'] . '</td>
                         <td>' . $data['qty'] . '</td>
                         <td>' . $data['currency'] . '</td>
                         <td>' . $data['price'] . '</td>
                         <td>' . $data['total'] . '</td>
+                        <td>' . $status . '</td>
                         <td>' . $data['po_no'] . '</td>
                         <td>' . $data['remarks'] . '</td>
                         <td>' . $data['created_by'] . '</td>

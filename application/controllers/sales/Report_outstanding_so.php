@@ -153,7 +153,7 @@ class Report_outstanding_so extends CI_Controller
                     AND customer_order_no LIKE '%$filter_customer_order_no%'
                     AND sales_order_no LIKE '%$filter_sales_order_no%'
                     GROUP BY item_fg_id, sales_order_no) b ON a.id = b.item_fg_id
-                LEFT JOIN (SELECT item_fg_id, sales_order_no, SUM(qty) AS qty_delivery FROM delivery_notes WHERE `status` != '2' and delivery_note_date BETWEEN '$filter_so_date_from' AND '$filter_so_date_to' GROUP BY item_fg_id, sales_order_no) c ON a.id = c.item_fg_id and b.sales_order_no = c.sales_order_no
+                LEFT JOIN (SELECT item_fg_id, sales_order_no, SUM(qty) AS qty_delivery FROM delivery_notes WHERE delivery_note_date BETWEEN '$filter_so_date_from' AND '$filter_so_date_to' GROUP BY item_fg_id, sales_order_no) c ON a.id = c.item_fg_id and b.sales_order_no = c.sales_order_no
                 LEFT JOIN (SELECT a.id, b.sales_order_no,
                     (COALESCE(b.qty_so, 0) - COALESCE(c.qty_delivery, 0)) AS begin_stock
                     FROM item_fg a
@@ -164,7 +164,7 @@ class Report_outstanding_so extends CI_Controller
                         AND customer_order_no LIKE '%$filter_customer_order_no%'
                         AND sales_order_no LIKE '%$filter_sales_order_no%'
                         GROUP BY item_fg_id, sales_order_no) b ON a.id = b.item_fg_id
-                    LEFT JOIN (SELECT item_fg_id, sales_order_no, SUM(qty) AS qty_delivery FROM delivery_notes WHERE `status` != '2' and delivery_note_date < '$filter_so_date_from' GROUP BY item_fg_id, sales_order_no) c ON a.id = c.item_fg_id and b.sales_order_no = c.sales_order_no
+                    LEFT JOIN (SELECT item_fg_id, sales_order_no, SUM(qty) AS qty_delivery FROM delivery_notes WHERE delivery_note_date < '$filter_so_date_from' GROUP BY item_fg_id, sales_order_no) c ON a.id = c.item_fg_id and b.sales_order_no = c.sales_order_no
                     GROUP BY a.id) d ON a.id = d.id and b.sales_order_no = d.sales_order_no
                 GROUP BY a.id, b.sales_order_no
                 ORDER BY a.number_customer ASC");

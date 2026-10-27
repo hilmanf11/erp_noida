@@ -494,7 +494,6 @@ class Delivery_confirm extends CI_Controller
             <tr>
                 <th width="20">No</th>
                 <th>Status</th>
-                <th>Supplier ID</th>
                 <th>Supplier Name</th>
                 <th>Delivery No</th>
                 <th>Invoice No</th>
@@ -523,7 +522,6 @@ class Delivery_confirm extends CI_Controller
             $html .= '  <tr>
                             <td>' . $no . '</td>
                             <td>' . $status . '</td>
-                            <td>' . $data['supplier_id'] . '</td>
                             <td>' . $data['supplier_name'] . '</td>
                             <td>' . $data['delivery_no'] . '</td>
                             <td>' . $data['invoice_no'] . '</td>

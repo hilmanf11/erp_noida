@@ -53,10 +53,9 @@ class Report_ar extends CI_Controller
         return $amount;
     }
 
-    public function begin_balance($customer_id, $plant, $filter_from, $filter_status = "", $balance_local)
-    {
+    public function begin_balance($customer_id, $plant, $filter_from, $filter_status = "", $balance_local){
         $customer = $this->crud->read("customers", [], ["id" => $customer_id]);
-        $company_name = "(" . $plant . ") " . $customer->name;
+        $company_name = "(".$plant.") ".$customer->name;
         $company_name2 = $customer->name . " | " . $plant;
 
         $query_1 = $this->db->query("SELECT 
@@ -78,7 +77,7 @@ class Report_ar extends CI_Controller
         FROM sales_invoices a
         JOIN (SELECT journal_date, number, document_no, account_number, description, SUM(local_debit) AS local_debit, SUM(local_credit) AS local_credit 
             FROM journal_postings 
-            WHERE  modul NOT IN ('CLEARING','ADJUSTMENT') and account_number IN ('27000001','27000002','27000003') 
+            WHERE  modul NOT IN ('CLEARING','ADJUSTMENT') and account_number IN ('27000001') 
             GROUP BY number, document_no, account_number) b ON a.number = b.document_no
         LEFT JOIN journal_clearings c ON a.number = c.document_no
         LEFT JOIN sales_invoices d ON a.number = d.number and d.cancel = 1
@@ -106,7 +105,7 @@ class Report_ar extends CI_Controller
         FROM ar_receipts a
         LEFT JOIN (SELECT journal_date, number, document_no, account_number, description, SUM(local_debit) AS local_debit, SUM(local_credit) AS local_credit 
             FROM journal_postings 
-            WHERE modul != 'CLEARING' and account_number IN ('27000001','27000002','27000003')
+            WHERE modul != 'CLEARING' and account_number IN ('27000001') 
             GROUP BY number, document_no, account_number) b ON a.receipt_no = b.document_no
         LEFT JOIN sales_invoices c ON a.sales_invoice = c.number
         LEFT JOIN journal_clearings d ON a.receipt_no = d.document_no
@@ -132,10 +131,10 @@ class Report_ar extends CI_Controller
             SUM(a.local_credit) AS local_credit,
             a.status_cl as status
         FROM journal_postings a
-        LEFT JOIN journal_clearings b ON a.document_no = b.document_no and a.company_id = b.company_id and a.description = b.description and b.company_name like '%$plant%' and (a.local_debit - a.local_credit) = (b.amount)
+        LEFT JOIN journal_clearings b ON a.document_no = b.document_no and a.company_id = b.company_id and a.description = b.description and b.company_name like '%$plant%' and (a.local_debit + a.local_credit) = abs(b.amount)
         WHERE a.company_id = '$customer_id' and a.company_name like '%$company_name%'
         AND a.modul IN ('CURRENCY REVALUATION','ADJUSTMENT') 
-        AND a.account_number IN ('27000001','27000002','27000003','28000004','28000007')
+        AND a.account_number IN ('27000001','28000004','28000007')
         AND a.journal_date < '$filter_from'
         GROUP BY a.number
         ORDER BY a.journal_date ASC");
@@ -148,8 +147,8 @@ class Report_ar extends CI_Controller
         $no = 0;
         foreach ($purchase_invoices as $purchase_invoice) {
             // if($purchase_invoice['cl_no'] == ""){
-            $local_debit += $purchase_invoice['local_debit'];
-            $local_credit += $purchase_invoice['local_credit'];
+                $local_debit += $purchase_invoice['local_debit'];
+                $local_credit += $purchase_invoice['local_credit'];
             // }
 
             $no++;
@@ -159,8 +158,7 @@ class Report_ar extends CI_Controller
         return $begin_balance;
     }
 
-    public function formatNo($amount)
-    {
+    public function formatNo($amount){
         if ($amount >= 0) {
             return number_format(@$amount, 2);
         } else {
@@ -178,7 +176,7 @@ class Report_ar extends CI_Controller
 
         $filter_from = base64_decode($this->input->get("filter_from"));
         $filter_to = base64_decode($this->input->get("filter_to"));
-        if ($filter_from == "" && $filter_to == "") {
+        if($filter_from == "" && $filter_to == ""){
             $filter_from = "2024-10-01";
             $filter_to = date("Y-m-d");
         }
@@ -241,7 +239,7 @@ class Report_ar extends CI_Controller
                                 <th>Currency</th>
                                 <th>LOCAL CURRENCY<br><i>Balance</i></th>
                             </tr>';
-
+    
         $detail = '<table id="customers" border="1">
                         <tr>
                             <th rowspan="2" width="20">No</th>
@@ -275,8 +273,7 @@ class Report_ar extends CI_Controller
         $grand_local_balance = 0;
         $grand_summary_total = 0;
 
-        function compare_trans_date($a, $b)
-        {
+        function compare_trans_date($a, $b) {
             return strtotime($a['voucher_date']) - strtotime($b['voucher_date']);
         }
 
@@ -284,7 +281,7 @@ class Report_ar extends CI_Controller
             $customer_id = $customer['id'];
             $customer_name = $customer['name'];
             $plant = $customer['plant'];
-            $company_name = "(" . $plant . ") " . $customer_name;
+            $company_name = "(".$plant.") ".$customer_name;
             $company_name2 = $customer_name . " | " . $plant;
 
             $query_1 = $this->db->query("SELECT 
@@ -307,7 +304,7 @@ class Report_ar extends CI_Controller
             FROM sales_invoices a
             JOIN (SELECT journal_date, number, document_no, account_number, description, SUM(local_debit) AS local_debit, SUM(local_credit) AS local_credit 
                 FROM journal_postings 
-                WHERE  modul NOT IN ('CLEARING','ADJUSTMENT') and account_number IN ('27000001','27000002','27000003') 
+                WHERE  modul NOT IN ('CLEARING','ADJUSTMENT') and account_number IN ('27000001') 
                 GROUP BY number, document_no, account_number) b ON a.number = b.document_no
             LEFT JOIN journal_clearings c ON a.number = c.document_no
             LEFT JOIN sales_invoices d ON a.number = d.number and d.cancel = 1
@@ -336,7 +333,7 @@ class Report_ar extends CI_Controller
             FROM ar_receipts a
             LEFT JOIN (SELECT journal_date, number, document_no, account_number, description, SUM(local_debit) AS local_debit, SUM(local_credit) AS local_credit 
                 FROM journal_postings 
-                WHERE modul != 'CLEARING' and account_number IN ('27000001','27000002','27000003') 
+                WHERE modul != 'CLEARING' and account_number IN ('27000001') 
                 GROUP BY number, document_no, account_number) b ON a.receipt_no = b.document_no
             LEFT JOIN sales_invoices c ON a.sales_invoice = c.number
             LEFT JOIN journal_clearings d ON a.receipt_no = d.document_no
@@ -366,7 +363,7 @@ class Report_ar extends CI_Controller
             LEFT JOIN journal_clearings b ON a.document_no = b.document_no and a.company_id = b.company_id and a.description = b.description and b.company_name like '%$plant%' and (a.local_debit + a.local_credit) = abs(b.amount)
             WHERE a.company_id = '$customer_id' and a.company_name like '%$company_name%'
             AND a.modul IN ('CURRENCY REVALUATION','ADJUSTMENT') 
-            AND a.account_number IN ('27000001','27000002','27000003','28000004','28000007')
+            AND a.account_number IN ('27000001','28000004','28000007')
             AND a.journal_date BETWEEN '$filter_from' and '$filter_to'
             AND a.status_cl LIKE '%$filter_status%'
             GROUP BY a.number
@@ -383,13 +380,13 @@ class Report_ar extends CI_Controller
             $begin_balance_local = $this->begin_balance($customer_id, $plant, $filter_from, $filter_status, @$customer['balance_local']);
 
             // if (count($sales_invoices) > 0) {
-            $detail .= '  <tr style="background: #DEE2FF; font-weight:bold;">
-                                    <td colspan="16">BEGINING BALANCE (' . $customer_name . ')</td>
+                $detail .= '  <tr style="background: #DEE2FF; font-weight:bold;">
+                                    <td colspan="16">BEGINING BALANCE ('.$customer_name.')</td>
                                     <td colspan="3"></td>
                                     <td style="text-align:right;">' . number_format(@$begin_balance_local, 2) . '</td>
                                 </tr>';
             // }
-
+            
             $accumulated = $begin_balance_local;
             foreach ($sales_invoices as $sales_invoice) {
                 $cl_no = $sales_invoice['cl_no'];
@@ -398,16 +395,16 @@ class Report_ar extends CI_Controller
                 $cl_no_array = array();
                 $cl_date_array = array();
                 $total_payment = 0;
-
-                if ($sales_invoice['source'] == "SI") {
+                
+                if($sales_invoice['source'] == "SI"){
                     $payments = $this->db->query("SELECT a.*, a.account_number,
                         (CASE WHEN a.account_type = 'DEBIT' THEN (a.receipt) ELSE 0 END) AS local_debit,
                         (CASE WHEN a.account_type = 'CREDIT' THEN (a.receipt) ELSE 0 END) AS local_credit
                         FROM ar_receipts a
                         WHERE a.sales_invoice = '$document_no'
                         GROUP BY a.receipt_no")->result_array();
-
-                    if ($cl_no != "") {
+                    
+                    if($cl_no != ""){
                         $cl_no_array[] = $cl_no;
                         $cl_date_array[] = $cl_date;
                     }
@@ -416,21 +413,21 @@ class Report_ar extends CI_Controller
                         $cl_no_array[] = $payment['receipt_no'];
                         $cl_date_array[] = $payment['receipt_date'];
 
-                        if ($cl_no == "") {
-                            if ($payment['account_type'] == "CREDIT") {
+                        if($cl_no == ""){
+                            if($payment['account_type'] == "CREDIT"){
                                 $total_payment += $payment['receipt'];
-                            } else {
+                            }else{
                                 $total_payment -= $payment['receipt'];
                             }
                         }
                     }
-
+                    
                     $cl_no = implode(", ", $cl_no_array);
                     $cl_date = implode(", ", $cl_date_array);
-                } elseif ($sales_invoice['source'] == "AR") {
+                }elseif($sales_invoice['source'] == "AR"){
                     $qpayment = $this->db->query("SELECT * FROM ar_receipts WHERE receipt_no = '$document_no' and sales_invoice IN (SELECT DISTINCT number FROM sales_invoices)")->result_array();
 
-                    if ($cl_no != "") {
+                    if($cl_no != ""){
                         $cl_no_array[] = $cl_no;
                         $cl_date_array[] = $cl_date;
                     }
@@ -439,9 +436,9 @@ class Report_ar extends CI_Controller
                         $cl_no_array[] = $payment['receipt_no'];
                         $cl_date_array[] = $payment['receipt_date'];
 
-                        if ($payment['account_type'] == "CREDIT") {
+                        if($payment['account_type'] == "CREDIT"){
                             $total_payment -= $payment['receipt'];
-                        } else {
+                        }else{
                             $total_payment += $payment['receipt'];
                         }
                     }
@@ -460,12 +457,12 @@ class Report_ar extends CI_Controller
                 //     $status_purchase = "-";
                 //     $style_status_purchase = "";
                 // }
-
-                if ($cl_no == "" && $sales_invoice['status_cancel'] == 0) {
+                
+                if($cl_no == "" && $sales_invoice['status_cancel'] == 0){
                     $balance_local = ($sales_invoice['local_debit'] - $sales_invoice['local_credit']);
-                } elseif ($total_payment != 0) {
+                }elseif($total_payment != 0){
                     $balance_local = ($sales_invoice['local_debit'] - $sales_invoice['local_credit'] - $total_payment);
-                } else {
+                }else{
                     $balance_local = 0;
                 }
 
@@ -500,16 +497,16 @@ class Report_ar extends CI_Controller
                                     <td style="text-align:right;">' . $this->formatNo($balance_local) . '</td>
                                     <td style="text-align:right;">' . $this->formatNo($accumulated) . '</td>
                                 </tr>';
-
-                if ($filter_status == "0" && $status_purchase == "OPEN") {
+                
+                if($filter_status == "0" && $status_purchase == "OPEN"){
                     $detail .= $content;
                 }
 
-                if ($filter_status == "1" && $status_purchase == "CLOSE") {
+                if($filter_status == "1" && $status_purchase == "CLOSE"){
                     $detail .= $content;
                 }
 
-                if ($filter_status == "") {
+                if($filter_status == ""){
                     $detail .= $content;
                 }
 
@@ -581,7 +578,7 @@ class Report_ar extends CI_Controller
                             <td></td>
                             <td style="text-align:right;">' . number_format($grand_local_debit, 2) . '</td>
                             <td style="text-align:right;">' . number_format($grand_local_credit, 2) . '</td>
-                            <td style="text-align:right;">' . $this->formatNo($grand_local_balance) . '</td>
+                            <td style="text-align:right;">' .$this->formatNo($grand_local_balance) . '</td>
                             <td style="text-align:right;">' . $this->formatNo($grand_summary_total) . '</td>
                         </tr>';
 

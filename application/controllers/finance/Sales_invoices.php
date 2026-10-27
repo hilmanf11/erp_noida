@@ -131,7 +131,7 @@ class Sales_invoices extends CI_Controller
 
     public function readFoc()
     {
-        $records1 = $this->crud->query("SELECT DISTINCT a.number 
+        $records1 = $this->crud->query("SELECT DISTINCT a.number, DATE_FORMAT(a.approved_date, '%Y-%m-%d') as approved_date
             FROM rgp_transactions a 
             JOIN item_rm b ON a.item_id = b.id
             JOIN scan_item_rgp c ON a.number = c.rgp_number and a.item_id = c.item_id
@@ -140,7 +140,7 @@ class Sales_invoices extends CI_Controller
             GROUP BY a.number 
             ORDER BY a.number ASC");
 
-        $records2 = $this->crud->query("SELECT DISTINCT a.number 
+        $records2 = $this->crud->query("SELECT DISTINCT a.number, DATE_FORMAT(a.approved_date, '%Y-%m-%d') as approved_date
             FROM rgp_transactions a 
             JOIN item_rm b ON a.item_id = b.id 
             JOIN item_categories c ON b.item_category_id = c.id
@@ -148,7 +148,7 @@ class Sales_invoices extends CI_Controller
             GROUP BY a.number 
             ORDER BY a.number ASC");
 
-        $records3 = $this->crud->query("SELECT DISTINCT a.number 
+        $records3 = $this->crud->query("SELECT DISTINCT a.number, DATE_FORMAT(a.approved_date, '%Y-%m-%d') as approved_date
             FROM rgp_transactions a 
             JOIN item_fg b ON a.item_id = b.id 
             WHERE a.status_si = '0' and a.type = 'OUT' and a.process_type = 'FOC' and (a.approved_to = '' or a.approved_to is null) 

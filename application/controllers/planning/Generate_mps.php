@@ -78,13 +78,6 @@ class Generate_mps extends CI_Controller
             $filter_product_no = base64_decode($this->input->get('filter_item_fg'));
             $filter_revision = base64_decode($this->input->get('filter_revision'));
 
-            $filter_cutoff_start = date("Y-m-01", strtotime($filter_cutoff));
-            $filter_cutoff_start2 = date("Y-m-01", strtotime("-1 month", strtotime($filter_cutoff)));
-            $filter_cutoff_end = date("Y-m-d", strtotime("-1 day", strtotime($filter_cutoff)));
-            $filter_cutoff_end2 = date("Y-m-t", strtotime($filter_cutoff));
-            $mpp_1 = date("Ym", strtotime("-1 month", strtotime($filter_cutoff)));
-            $mpp_2 = date("Ym", strtotime($filter_cutoff));
-
             $monthBack = date('F Y', strtotime('-1 month', strtotime($filter_year . "-" . $filter_month . "-01")));
             $varBackYear = date('Y', strtotime('+1 month', strtotime($filter_year . "-" . $filter_month . "-01")));
             $varBackMonth = date('m', strtotime('+1 month', strtotime($filter_year . "-" . $filter_month . "-01")));
@@ -110,6 +103,14 @@ class Generate_mps extends CI_Controller
                 WHERE a.trans_date < '$filter_cutoff'
                 GROUP BY a.item_fg_id, a.workorder) z
                 GROUP BY z.item_fg_id) c", "a.id = c.item_fg_id", "left");
+            // $this->db->join("(SELECT DATE_FORMAT(a.created_date, '%Y%m') as period, b.item_fg_id, b.customer_id, SUM(a.qty) as qty FROM scan_item_receipts_fg a JOIN wip_receipts b ON a.checksheet_number = b.checksheet_number WHERE a.status = 0 GROUP BY b.period, b.item_fg_id) d", "a.id = d.item_fg_id and b.customer_id = d.customer_id and d.period = '$period2'", "left");
+            // $this->db->join("(SELECT b.item_fg_id, SUM(a.qty) as qty FROM scan_item_receipts_fg a JOIN os_fg b ON a.workorder = b.id WHERE a.status = 0 GROUP BY b.item_fg_id) g", "a.id = g.item_fg_id", "left");
+            // $this->db->join("(SELECT DATE_FORMAT(a.trans_date_from, '%Y%m') as period, item_fg_id, customer_id, SUM(qty) as qty FROM wip_receipts a GROUP BY DATE_FORMAT(a.trans_date_from, '%Y%m')) e", "a.id = e.item_fg_id and b.customer_id = e.customer_id and e.period = '$period2'", "left");
+            // $this->db->join("(SELECT c.id as item_fg_id, c.number_customer, COALESCE(a.qty_so, 0) as qty_so, COALESCE(b.qty_delivery, 0) as qty_delivery, (COALESCE(a.qty_so, 0) - COALESCE(b.qty_delivery, 0)) as outstanding
+            //     FROM item_fg c
+            //     JOIN (SELECT item_fg_id, SUM(qty) as qty_so FROM `sales_orders` WHERE delivery_date < '$filter_cutoff' and status = 0 GROUP BY item_fg_id) a ON a.item_fg_id = c.id
+            //     JOIN (SELECT item_fg_id, SUM(qty) as qty_delivery FROM delivery_notes WHERE delivery_note_date < '$filter_cutoff' GROUP BY item_fg_id) b ON b.item_fg_id = c.id 
+            //     GROUP BY c.id) f", "a.id = f.item_fg_id", "left");
             $this->db->join("(SELECT z.id, SUM(z.qty_outstanding) AS outstanding FROM (
                 SELECT b.id, b.number_customer, a.qty_so, COALESCE(c.qty_delivery, 0) AS qty_delivery, (a.qty_so - COALESCE(c.qty_delivery, 0)) AS qty_outstanding
                 FROM (SELECT *, SUM(qty) AS qty_so FROM sales_orders WHERE `status` = 0 AND sales_order_no != '' GROUP BY sales_order_no, item_fg_id) a
@@ -129,83 +130,44 @@ class Generate_mps extends CI_Controller
             $this->db->order_by('a.number', 'asc');
             $records = $this->db->get()->result_array();
 
-            //Production Schedules
-            $prods = $this->crud->query("SELECT item_fg_id, SUM(qty) as qty FROM production_schedules WHERE trans_date between '$filter_cutoff_start2' and '$filter_cutoff_end' GROUP BY item_fg_id");
-            $arrProd = [];
-            foreach ($prods as $prod) {
-                $arrProd[$prod->item_fg_id] = $prod->qty;
-            }
-
-            //Shop Floor (MRP Old)
-            $sqlScan = $this->dummy->query("SELECT x.assy_number, COUNT(x.serial_number) as qty FROM (
-                SELECT DISTINCT z.serial_number, z.assy_number FROM (
-                SELECT DISTINCT
-                    TRIM(a.serial_number) AS serial_number,
-                    TRIM(a.assy_number) AS assy_number,
-                    TRIM(a.customer) AS customer,
-                    TRIM(a.mpp) AS mpp,
-                    TRIM(a.wp) AS wp,
-                    TRIM(a.lot) AS lot,
-                    DATE(a.tanggal_proses) AS tanggal,
-                    COALESCE(a.jam_scan,'00:00:00') AS jam,
-                    a.wds_qty
-                FROM mst_scan_proses a
-                WHERE kode_proses = '11' and mpp in ('$mpp_1','$mpp_2') and 
-                tanggal_proses <= '$filter_cutoff_end' and status_repair = 'false' 
-                AND status_before IS NOT NULL
-                AND status_repair = 'f'
-                ORDER BY serial_number) z ) x
-                GROUP BY x.assy_number");
-            $rowScans = $sqlScan->result_array();
-            $arrScan = [];
-            foreach ($rowScans as $scan) {
-                $arrScan[$scan['assy_number']] = $scan['qty'];
-            }
-
-            //Stock FG
-            $stockFgs = $this->crud->query("SELECT
-                a.id,
-                (COALESCE(b.qty_sto, 0) + COALESCE(d.sto_qty_in, 0) + COALESCE(e.qty_rgp_in, 0) + COALESCE(c.qty_wip, 0) + COALESCE(i.qty_return, 0) - COALESCE(g.qty, 0) - COALESCE(f.qty_rgp_out, 0) - COALESCE(h.sto_qty_out, 0)) as end_stock
-                FROM item_fg a 
-                LEFT JOIN (select a.item_fg_id, COALESCE(SUM(b.qty), 0) as qty_sto FROM os_fg a JOIN scan_item_receipts_fg b ON a.id = b.workorder WHERE a.trans_date <= '$filter_cutoff' GROUP BY a.item_fg_id) b ON a.id = b.item_fg_id
-                LEFT JOIN (select a.item_fg_id, COALESCE(SUM(b.qty), 0) as qty_wip FROM wip_receipts a JOIN scan_item_receipts_fg b ON a.workorder = b.workorder and a.checksheet_number = b.checksheet_number WHERE DATE_FORMAT(b.created_date, '%Y-%m-%d') <= '$filter_cutoff' GROUP BY a.item_fg_id) c ON a.id = c.item_fg_id
-                LEFT JOIN (select a.item_fg_id, COALESCE(SUM(b.qty), 0) as qty_return FROM sales_returns a JOIN scan_item_receipts_fg b ON a.sales_invoice_no = b.workorder and a.return_id = b.checksheet_number WHERE DATE_FORMAT(b.created_date, '%Y-%m-%d') <= '$filter_cutoff' GROUP BY a.item_fg_id) i ON a.id = i.item_fg_id
-                LEFT JOIN (SELECT a.item_fg_id, COALESCE(SUM(a.qty), 0) as sto_qty_in FROM sto_fg a WHERE a.trans_date <= '$filter_cutoff' and a.type = 'IN' and (a.approved_to = '' or a.approved_to is null) GROUP BY item_fg_id) d ON a.id = d.item_fg_id
-                LEFT JOIN (SELECT a.item_fg_id, COALESCE(SUM(a.qty), 0) as sto_qty_out FROM sto_fg a WHERE a.trans_date <= '$filter_cutoff' and a.type = 'OUT' and (a.approved_to = '' or a.approved_to is null) GROUP BY item_fg_id) h ON a.id = h.item_fg_id
-                LEFT JOIN (SELECT a.item_id, COALESCE(SUM(b.qty), 0) as qty_rgp_in FROM rgp_transactions a JOIN scan_item_rgp b ON a.number = b.rgp_number and a.item_id= b.item_id WHERE a.type = 'IN' and a.transaction_date <= '$filter_cutoff' GROUP BY a.item_id) e ON a.id = e.item_id
-                LEFT JOIN (SELECT a.item_id, COALESCE(SUM(b.qty), 0) as qty_rgp_out FROM rgp_transactions a JOIN scan_item_rgp b ON a.number = b.rgp_number and a.item_id = b.item_id WHERE a.type = 'OUT' and a.transaction_date <= '$filter_cutoff' GROUP BY a.item_id) f ON a.id = f.item_id
-                LEFT JOIN (SELECT item_fg_id, delivery_note_date, COALESCE(SUM(qty), 0) as qty FROM delivery_notes WHERE DATE_FORMAT(created_date, '%Y-%m-%d') <= '$filter_cutoff' and `status` != '2' GROUP BY item_fg_id) g ON a.id = g.item_fg_id
-            GROUP BY a.id
-            ORDER BY a.number");
-
-            $arrstockFg = [];
-            foreach ($stockFgs as $stockFg) {
-                $arrstockFg[$stockFg->id] = $stockFg->end_stock;
-            }
-
-            //OS MPP
-            $p_month = date("m", strtotime($filter_cutoff));
-            $p_year = date("Y", strtotime($filter_cutoff));
-            $osMpps = $this->crud->query("SELECT
-                a.id,
-                ((c.date_1 + c.date_2 + c.date_3 + c.date_4 + c.date_5 + c.date_6 + c.date_7 + c.date_8 + c.date_9 + c.date_10 + c.date_11 + c.date_12 + c.date_13 + c.date_14 + c.date_15 + c.date_16 + c.date_17 + c.date_18 + c.date_19 + c.date_20 + c.date_21 + c.date_22 + c.date_23 + c.date_24 + c.date_25 + c.date_26 + c.date_27 + c.date_28 + c.date_29 + c.date_30 + c.date_31) - COALESCE(SUM(b.qty), 0)) as os_mpp
-            FROM item_fg a 
-            JOIN generate_mpp c ON a.id = c.item_fg_id and c.p_month = '$p_month' and c.p_year = '$p_year'
-            LEFT JOIN production_schedules b ON a.id = b.item_fg_id and b.trans_date between '$filter_cutoff_start' and '$filter_cutoff_end2'
-            GROUP BY a.id");
-            $arrOsMpp = [];
-            foreach ($osMpps as $osMpp) {
-                $arrOsMpp[$osMpp->id] = $osMpp->os_mpp;
-            }
-
             foreach ($records as $data) {
+                $filter_cutoff_start = date("Y-m-01", strtotime($filter_cutoff));
+                $filter_cutoff_start2 = date("Y-m-01", strtotime("-1 month", strtotime($filter_cutoff)));
+                $filter_cutoff_end = date("Y-m-d", strtotime("-1 day", strtotime($filter_cutoff)));
+                $filter_cutoff_end2 = date("Y-m-t", strtotime($filter_cutoff));
+                $mpp_1 = date("Ym", strtotime("-1 month", strtotime($filter_cutoff)));
+                $mpp_2 = date("Ym", strtotime($filter_cutoff));
                 $item_fg_id = $data['id'];
                 $assy_number = $data['number_customer'];
-                $qty_prod = empty($arrProd[$item_fg_id]) ? 0 : $arrProd[$item_fg_id];
-                $qty_scan = empty(@$arrScan[$assy_number]) ? 0 : @$arrScan[$assy_number];
+                
+                $prod = $this->crud->query("SELECT item_fg_id, SUM(qty) as qty FROM production_schedules 
+                WHERE trans_date between '$filter_cutoff_start2' and '$filter_cutoff_end' and item_fg_id = '$item_fg_id'
+                GROUP BY item_fg_id");
+                $qty_prod = empty(@$prod[0]->qty) ? 0 : @$prod[0]->qty;
+
+                $sqlQty = $this->dummy->query("SELECT COUNT(x.serial_number) as qty FROM (
+                    SELECT DISTINCT z.serial_number FROM (
+                    SELECT DISTINCT
+                        TRIM(a.serial_number) AS serial_number,
+                        TRIM(a.assy_number) AS assy_number,
+                        TRIM(a.customer) AS customer,
+                        TRIM(a.mpp) AS mpp,
+                        TRIM(a.wp) AS wp,
+                        TRIM(a.lot) AS lot,
+                        DATE(a.tanggal_proses) AS tanggal,
+                        COALESCE(a.jam_scan,'00:00:00') AS jam,
+                        a.wds_qty
+                    FROM mst_scan_proses a
+                    WHERE kode_proses = '11' and assy_number = '$assy_number' and mpp in ('$mpp_1','$mpp_2') and 
+                    tanggal_proses <= '$filter_cutoff_end' and status_repair = 'false' 
+                    AND status_before IS NOT NULL
+                    AND status_repair = 'f'
+                    ORDER BY serial_number) z ) x");
+                $rowQty = $sqlQty->row();
+                $qty_scan = empty(@$rowQty->qty) ? 0 : @$rowQty->qty;
 
                 if(($qty_prod - $qty_scan) > 0){
-                    $balance_wip = ($qty_prod - $qty_scan);
+                    $balance_wip = ($prod[0]->qty - $qty_scan);
                 }else{
                     $balance_wip = 0;
                 }
@@ -228,9 +190,44 @@ class Generate_mps extends CI_Controller
                 $customer_id = $data['customer_id'];
                 $qForecast = $this->db->query("SELECT SUM(month_1) as month_1, SUM(month_2) as month_2, SUM(month_3) as month_3, SUM(month_4) as month_4, SUM(month_5) as month_5, SUM(month_6) as month_6 FROM forecasts WHERE item_fg_id = '$item_fg_id' and customer_id = '$customer_id' and p_year = '$filter_year' and p_month = '$filter_month' and revision = '$filter_revision'");
                 $forecast = $qForecast->row();
+                // $forecast = $this->crud->read('forecasts', [], ["item_fg_id" => $data['id'], "customer_id" => $data['customer_id'], "p_month" => $filter_month, "p_year" => $filter_year, "revision" => $filter_revision]);
 
-                $os_mpp = empty($arrOsMpp[$item_fg_id]) ? 0 : $arrOsMpp[$item_fg_id];
-                $stock_fg = empty($arrstockFg[$item_fg_id]) ? 0 : $arrstockFg[$item_fg_id];
+                $stockFg = $this->crud->query("SELECT
+                    a.id,
+                    (COALESCE(b.qty_sto, 0) + COALESCE(d.sto_qty_in, 0) + COALESCE(e.qty_rgp_in, 0) + COALESCE(c.qty_wip, 0) + COALESCE(i.qty_return, 0) - COALESCE(g.qty, 0) - COALESCE(f.qty_rgp_out, 0) - COALESCE(h.sto_qty_out, 0)) as end_stock
+                    FROM item_fg a 
+                    LEFT JOIN (select a.item_fg_id, COALESCE(SUM(b.qty), 0) as qty_sto FROM os_fg a JOIN scan_item_receipts_fg b ON a.id = b.workorder WHERE a.trans_date <= '$filter_cutoff' GROUP BY a.item_fg_id) b ON a.id = b.item_fg_id
+                    LEFT JOIN (select a.item_fg_id, COALESCE(SUM(b.qty), 0) as qty_wip FROM wip_receipts a JOIN scan_item_receipts_fg b ON a.workorder = b.workorder and a.checksheet_number = b.checksheet_number WHERE DATE_FORMAT(b.created_date, '%Y-%m-%d') <= '$filter_cutoff' GROUP BY a.item_fg_id) c ON a.id = c.item_fg_id
+                    LEFT JOIN (select a.item_fg_id, COALESCE(SUM(b.qty), 0) as qty_return FROM sales_returns a JOIN scan_item_receipts_fg b ON a.sales_invoice_no = b.workorder and a.return_id = b.checksheet_number WHERE DATE_FORMAT(b.created_date, '%Y-%m-%d') <= '$filter_cutoff' GROUP BY a.item_fg_id) i ON a.id = i.item_fg_id
+                    LEFT JOIN (SELECT a.item_fg_id, COALESCE(SUM(a.qty), 0) as sto_qty_in FROM sto_fg a WHERE a.trans_date <= '$filter_cutoff' and a.type = 'IN' and (a.approved_to = '' or a.approved_to is null) GROUP BY item_fg_id) d ON a.id = d.item_fg_id
+                    LEFT JOIN (SELECT a.item_fg_id, COALESCE(SUM(a.qty), 0) as sto_qty_out FROM sto_fg a WHERE a.trans_date <= '$filter_cutoff' and a.type = 'OUT' and (a.approved_to = '' or a.approved_to is null) GROUP BY item_fg_id) h ON a.id = h.item_fg_id
+                    LEFT JOIN (SELECT a.item_id, COALESCE(SUM(b.qty), 0) as qty_rgp_in FROM rgp_transactions a JOIN scan_item_rgp b ON a.number = b.rgp_number and a.item_id= b.item_id WHERE a.type = 'IN' and a.transaction_date <= '$filter_cutoff' GROUP BY a.item_id) e ON a.id = e.item_id
+                    LEFT JOIN (SELECT a.item_id, COALESCE(SUM(b.qty), 0) as qty_rgp_out FROM rgp_transactions a JOIN scan_item_rgp b ON a.number = b.rgp_number and a.item_id = b.item_id WHERE a.type = 'OUT' and a.transaction_date <= '$filter_cutoff' GROUP BY a.item_id) f ON a.id = f.item_id
+                    LEFT JOIN (SELECT item_fg_id, delivery_note_date, COALESCE(SUM(qty), 0) as qty FROM delivery_notes WHERE DATE_FORMAT(created_date, '%Y-%m-%d') <= '$filter_cutoff' and `status` != '2' GROUP BY item_fg_id) g ON a.id = g.item_fg_id
+                WHERE a.id = '$item_fg_id'
+                GROUP BY a.id
+                ORDER BY a.number");
+
+                $p_month = date("m", strtotime($filter_cutoff));
+                $p_year = date("Y", strtotime($filter_cutoff));
+                $osMpp = $this->crud->query("SELECT
+                    a.id,
+                    ((c.date_1 + c.date_2 + c.date_3 + c.date_4 + c.date_5 + c.date_6 + c.date_7 + c.date_8 + c.date_9 + c.date_10 + c.date_11 + c.date_12 + c.date_13 + c.date_14 + c.date_15 + c.date_16 + c.date_17 + c.date_18 + c.date_19 + c.date_20 + c.date_21 + c.date_22 + c.date_23 + c.date_24 + c.date_25 + c.date_26 + c.date_27 + c.date_28 + c.date_29 + c.date_30 + c.date_31) - COALESCE(SUM(b.qty), 0)) as os_mpp
+                FROM item_fg a 
+                JOIN generate_mpp c ON a.id = c.item_fg_id and c.p_month = '$p_month' and c.p_year = '$p_year'
+                LEFT JOIN production_schedules b ON a.id = b.item_fg_id and b.trans_date between '$filter_cutoff_start' and '$filter_cutoff_end2'
+                WHERE a.id = '$item_fg_id'
+                GROUP BY a.id");
+
+                if(@$osMpp[0]->os_mpp > 0){
+                    $os_mpp = @$osMpp[0]->os_mpp;
+                }else{
+                    $os_mpp = 0;
+                }
+
+                $stock_fg = (@$stockFg[0]->end_stock);
+
+                // $totalStock = ($data['total_wip'] + @$stock_fg + $os_mpp);
                 $totalStock = ($balance_wip + @$stock_fg + $os_mpp);
                 if (@$stock_fg == null) {
                     $fg = "0";
@@ -297,82 +294,65 @@ class Generate_mps extends CI_Controller
 
                     //Bulan Pertama - Keenam
                     if ($i == 1) {
-                        $beginBalance = (($totalStock - $data['os_so']) > 0) ? ($totalStock - $data['os_so']) : 0;
+                        $beginBalance = $totalStock - $data['os_so'];
                         $soData = @round($sales_order[0]->qty);
                         $forecastData = @round($forecast->month_1);
                         if($soData > $forecastData){ $qtySoFc = $soData; }else{ $qtySoFc = $forecastData; }
                         $deliveryRate = @round($qtySoFc / $hkw);
                         $ito = @round($beginBalance / $deliveryRate);
-                        // $safetyStock = @round($forecast->month_1 * (@$data['safety_stock'] / 100));
-                        $safetyStock = @round($forecast->month_2 * (25 / 100));
-                        $safetyStockReduce = 0;
-                        $prodPlan = @round(($forecastData + $safetyStock) - $beginBalance - $safetyStockReduce);
-                        $prodPlan = ($prodPlan > 0) ? $prodPlan : 0;
+                        // $safetyStock = @round(((@$data['leadtime'] + $config->fg_ss) / $hkw2) * $forecast->month_2);
+                        $safetyStock = @round($forecast->month_1 * (@$data['safety_stock'] / 100));
+                        $prodPlan = @round(($qtySoFc + $safetyStock) - $beginBalance);
                     } else if ($i == 2) {
                         $beginBalance = (($prodPlan + $beginBalance) - $forecastData - $safetyStock);
-                        $beginBalance = ($beginBalance > 0) ? $beginBalance : 0;
                         $soData = @round($sales_order[0]->qty);
                         $forecastData = @round($forecast->month_2);
                         if($soData > $forecastData){ $qtySoFc = $soData; }else{ $qtySoFc = $forecastData; }
                         $deliveryRate = @round($qtySoFc / $hkw);
                         $ito = @round($beginBalance / $deliveryRate);
-                        // $safetyStock = @round($forecast->month_2 * (@$data['safety_stock'] / 100));
-                        $safetyStock = @round($forecast->month_3 * (25 / 100));
-                        $safetyStockReduce = @round($forecast->month_2 * (25 / 100));
-                        $prodPlan = @round(($forecastData + $safetyStock) - $beginBalance - $safetyStockReduce);
-                        $prodPlan = ($prodPlan > 0) ? $prodPlan : 0;
+                        // $safetyStock = @round(((@$data['leadtime'] + $config->fg_ss) / $hkw2) * $forecast->month_3);
+                        $safetyStock = @round($forecast->month_2 * (@$data['safety_stock'] / 100));
+                        $prodPlan = @round(($qtySoFc + $safetyStock) - $beginBalance);
                     } elseif ($i == 3) {
                         $beginBalance = (($prodPlan + $beginBalance) - $forecastData - $safetyStock);
-                        $beginBalance = ($beginBalance > 0) ? $beginBalance : 0;
                         $soData = @round($sales_order[0]->qty);
                         $forecastData = @round($forecast->month_3);
                         if($soData > $forecastData){ $qtySoFc = $soData; }else{ $qtySoFc = $forecastData; }
                         $deliveryRate = @round($qtySoFc / $hkw);
                         $ito = @round($beginBalance / $deliveryRate);
-                        // $safetyStock = @round($forecast->month_3 * (@$data['safety_stock'] / 100));
-                        $safetyStock = @round($forecast->month_4 * (25 / 100));
-                        $safetyStockReduce = @round($forecast->month_3 * (25 / 100));
-                        $prodPlan = @round(($forecastData + $safetyStock) - $beginBalance - $safetyStockReduce);
-                        $prodPlan = ($prodPlan > 0) ? $prodPlan : 0;
+                        // $safetyStock = @round(((@$data['leadtime'] + $config->fg_ss) / $hkw2) * $forecast->month_4);
+                        $safetyStock = @round($forecast->month_3 * (@$data['safety_stock'] / 100));
+                        $prodPlan = @round(($qtySoFc + $safetyStock) - $beginBalance);
                     } elseif ($i == 4) {
                         $beginBalance = (($prodPlan + $beginBalance) - $forecastData - $safetyStock);
-                        $beginBalance = ($beginBalance > 0) ? $beginBalance : 0;
                         $soData = @round($sales_order[0]->qty);
                         $forecastData = @round($forecast->month_4);
                         if($soData > $forecastData){ $qtySoFc = $soData; }else{ $qtySoFc = $forecastData; }
                         $deliveryRate = @round($qtySoFc / $hkw);
                         $ito = @round($beginBalance / $deliveryRate);
-                        // $safetyStock = @round($forecast->month_4 * (@$data['safety_stock'] / 100));
-                        $safetyStock = @round($forecast->month_5 * (25 / 100));
-                        $safetyStockReduce = @round($forecast->month_4 * (25 / 100));
-                        $prodPlan = @round(($forecastData + $safetyStock) - $beginBalance - $safetyStockReduce);
-                        $prodPlan = ($prodPlan > 0) ? $prodPlan : 0;
+                        // $safetyStock = @round(((@$data['leadtime'] + $config->fg_ss) / $hkw2) * $forecast->month_5);
+                        $safetyStock = @round($forecast->month_4 * (@$data['safety_stock'] / 100));
+                        $prodPlan = @round(($qtySoFc + $safetyStock) - $beginBalance);
                     } elseif ($i == 5) {
                         $beginBalance = (($prodPlan + $beginBalance) - $forecastData - $safetyStock);
-                        $beginBalance = ($beginBalance > 0) ? $beginBalance : 0;
                         $soData = @round($sales_order[0]->qty);
                         $forecastData = @round($forecast->month_5);
                         if($soData > $forecastData){ $qtySoFc = $soData; }else{ $qtySoFc = $forecastData; }
                         $deliveryRate = @round($qtySoFc / $hkw);
                         $ito = @round($beginBalance / $deliveryRate);
-                        // $safetyStock = @round($forecast->month_5 * (@$data['safety_stock'] / 100));
-                        $safetyStock = @round($forecast->month_6 * (25 / 100));
-                        $safetyStockReduce = @round($forecast->month_5 * (25 / 100));
-                        $prodPlan = @round(($forecastData + $safetyStock) - $beginBalance - $safetyStockReduce);
-                        $prodPlan = ($prodPlan > 0) ? $prodPlan : 0;
+                        // $safetyStock = @round(((@$data['leadtime'] + $config->fg_ss) / $hkw2) * $forecast->month_6);
+                        $safetyStock = @round($forecast->month_5 * (@$data['safety_stock'] / 100));
+                        $prodPlan = @round(($qtySoFc + $safetyStock) - $beginBalance);
                     } elseif ($i == 6) {
                         $beginBalance = (($prodPlan + $beginBalance) - $forecastData - $safetyStock);
-                        $beginBalance = ($beginBalance > 0) ? $beginBalance : 0;
                         $soData = @round($sales_order[0]->qty);
                         $forecastData = @round($forecast->month_6);
                         if($soData > $forecastData){ $qtySoFc = $soData; }else{ $qtySoFc = $forecastData; }
                         $deliveryRate = @round($qtySoFc / $hkw);
                         $ito = @round($beginBalance / $deliveryRate);
-                        // $safetyStock = @round($forecast->month_6 * (@$data['safety_stock'] / 100));
-                        $safetyStock = @round($forecast->month_7 * (25 / 100));
-                        $safetyStockReduce = @round($forecast->month_6 * (25 / 100));
-                        $prodPlan = @round(($forecastData + $safetyStock) - $beginBalance - $safetyStockReduce);
-                        $prodPlan = ($prodPlan > 0) ? $prodPlan : 0;
+                        // $safetyStock = @round(((@$data['leadtime'] + $config->fg_ss) / $hkw2) * $forecast->month_6);
+                        $safetyStock = @round($forecast->month_6 * (@$data['safety_stock'] / 100));
+                        $prodPlan = @round(($qtySoFc + $safetyStock) - $beginBalance);
                     }
 
                     if ($prodPlan <= 0) {
@@ -396,7 +376,6 @@ class Generate_mps extends CI_Controller
                         "forecast" => "$forecastData",
                         "delivery_rate" => "$deliveryRate",
                         "safety_stock" => "$safetyStock",
-                        "safety_stock_reduce" => "$safetyStockReduce",
                         "prod_plan" => "$prodPlanFinal"
                     );
 
@@ -410,7 +389,6 @@ class Generate_mps extends CI_Controller
                     $safetyStock = $safetyStock;
                     $prodPlan = $prodPlanFinal;
                     $balance = (($prodPlan + $beginBalance) - $forecastData);
-                    $balance = ($balance > 0) ? $balance : 0;
                 }
 
                 $arr[] = array(
@@ -467,7 +445,7 @@ class Generate_mps extends CI_Controller
         //Select Query
         $this->db->select('*');
         $this->db->from('forecasts');
-        $this->db->where("(approved_to = '' or approved_to is null)");
+        $this->db->where("approved_to = ''");
         if ($filter_month != "" or $filter_year != "") {
             $this->db->where('p_month', $filter_month);
             $this->db->where('p_year', $filter_year);
@@ -677,7 +655,6 @@ class Generate_mps extends CI_Controller
                     "forecast" => $postDetail['forecast'],
                     "delivery_rate" => $postDetail['delivery_rate'],
                     "safety_stock" => $postDetail['safety_stock'],
-                    "safety_stock_reduce" => $postDetail['safety_stock_reduce'],
                     "need" => $postDetail['prod_plan'],
                     "prod_plan" => $postDetail['prod_plan']
                 );
@@ -1362,33 +1339,25 @@ class Generate_mps extends CI_Controller
 
             // if ($no == 1) {
                 $xbar = '<th style="text-align:center;">SO</th>';
+                $colspan = '6';
             // } else {
             //     $xbar = "";
             //     $colspan = '8';
             // }
 
-            if($no > 1){
-                $ss_reduce = '<th style="text-align:center;">SAFETY <br> STOCK<br> TO BE REDUCE</th>';
-                $colspan = '7';
-            }else{
-                $ss_reduce = "";
-                $colspan = '6';
-            }
-
             $header .= '<th style="text-align:center;" colspan="' . $colspan . '" width="50">' . strtoupper($monthName) . '</th>';
             $headerDetails .= ' <th style="text-align:center;">BEGIN <br> BALANCE</th>
                                     ' . $xbar . '
                                     <th style="text-align:center;">FC</th>
-                                    <th style="text-align:center;">SAFETY <br> STOCK<br> TO BE ADD</th>
+                                    <th style="text-align:center;">SAFETY <br> STOCK</th>
                                     <th style="text-align:center;">NEED</th>
-                                    ' . $ss_reduce . '
                                     <th style="text-align:center;">PROD <br> PLAN</th>';
             $no++;
             $monthStart = strtotime("+1 month", $monthStart);
         }
 
         $html = '<html><head><title>Print Data</title></head><style>body {font-family: Arial, Helvetica, sans-serif;}#customers {border-collapse: collapse;width: 100%;font-size: 10px;}#customers td, #customers th {border: 1px solid #ddd;padding: 2px;}#customers tr:nth-child(even){background-color: #f2f2f2;}#customers tr:hover {background-color: #ddd;}#customers th {padding-top: 2px;padding-bottom: 2px;text-align: left;color: black;}</style><body>
-        <div style="width:3000px;">
+        <div style="width:2500px;">
         <table style="width: 100%;">
             <td width="50" style="font-size: 12px; vertical-align: top; text-align: center; vertical-align:jus margin-right:10px;">
                 <img src="' . $config->logo . '" width="30">
@@ -1421,8 +1390,6 @@ class Generate_mps extends CI_Controller
         $html .= $header;
         $html .= '
                 <th style="text-align:center;" rowspan="2" width="50">BAL</th>
-                <th style="text-align:center;" rowspan="2" width="50">TOTAL FC</th>
-                <th style="text-align:center;" rowspan="2" width="50">BEGIN + TOTAL PRODPLAN</th>
             </tr>
             <tr>';
         $html .= $headerDetails;
@@ -1483,30 +1450,28 @@ class Generate_mps extends CI_Controller
                 $details2 = $this->db->get()->result_array();
 
                 $nodetail = 1;
-                $total_forecast = 0;
-                $total_prodplan = 0;
                 foreach ($details2 as $detail2) {
-                    if ($nodetail == 1) {
-                        $safety_stock_reduce = "";
-                        $total_prodplan += ($detail2['begin_balance'] + $detail2['prod_plan']);
-                    } else {
-                        $safety_stock_reduce = '<td style="text-align:right;">' . $detail2['safety_stock_reduce'] . '</td>';
-                        $total_prodplan += ($detail2['prod_plan']);
-                    }
+                    // if ($nodetail == 1) {
+                        // if ($detail2['qty'] == "") {
+                        //     $xbarQty = 0;
+                        // } else {
+                        //     $xbarQty = $detail2['qty'];
+                        // }
+
+                        // $xbar2 = '<td style="text-align:right;">' . $xbarQty . '</td>';
+                    // } else {
+                    //     $xbar2 = "";
+                    // }
 
                     $html .= '  <td style="text-align:right;">' . $detail2['begin_balance'] . '</td>
                                 <td style="text-align:right;">' . $detail2['so'] . '</td>
                                 <td style="text-align:right;">' . $detail2['forecast'] . '</td>
                                 <td style="text-align:right;">' . $detail2['safety_stock'] . '</td>
                                 <td style="text-align:right;">' . $detail2['need'] . '</td>
-                                '.$safety_stock_reduce.'
                                 <td style="text-align:right;">' . $detail2['prod_plan'] . '</td>';
                     $nodetail++;
-                    $total_forecast += $detail2['forecast'];
                 }
                 $html .= '<td style="text-align:right;">' . $data['balance'] . '</td>
-                          <td style="text-align:right;">' . $total_forecast . '</td>
-                          <td style="text-align:right;">' . $total_prodplan . '</td>
             </tr>';
                 $no++;
             }

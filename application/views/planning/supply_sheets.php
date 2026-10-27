@@ -3,7 +3,7 @@
         <tr>
             <th rowspan="2" field="ck" checkbox="true"></th>
             <th rowspan="2" data-options="field:'state',width:80,align:'center',formatter:BtnPrint">Print</th>
-            <th rowspan="2" data-options="field:'wms',width:80,align:'center',formatter:BtnWms">WMS</th>
+            <!-- <th rowspan="2" data-options="field:'wms',width:80,align:'center',formatter:BtnWms">WMS</th> -->
             <th rowspan="2" data-options="field:'request_no',halign:'center',width:200" sortable="true">Supply No</th>
             <th rowspan="2" data-options="field:'supply_type',width:80,align:'center',formatter:issuedformat,styler:statusIssued" sortable="true">Supply<br>Type</th>
             <th rowspan="2" data-options="field:'request_date',width:120,halign:'center'" sortable="true">Supply Date</th>

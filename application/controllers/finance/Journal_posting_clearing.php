@@ -218,8 +218,7 @@ class Journal_posting_clearing extends CI_Controller
             WHERE a.company_id = '$company_id' and a.company_name like '%$company_name%'
             AND a.modul IN ('CURRENCY REVALUATION','ADJUSTMENT') AND a.status_cl = '0'
             AND a.account_number IN ('27000001')
-            GROUP BY a.number
-            HAVING amount != 0");
+            GROUP BY a.number");
         $journal_ar = $sql_33->result_array();
 
         $sql_4 = $this->db->query("SELECT 
@@ -244,9 +243,9 @@ class Journal_posting_clearing extends CI_Controller
             FROM journal_postings 
             WHERE account_number IN ('16000001','16000002','16000003','16000004','16000005','16000006','16000007','16000008') 
             GROUP BY document_no, account_number) b ON a.number = b.document_no
-        LEFT JOIN (SELECT purchase_invoice, SUM(payment) as payment FROM ap_payments WHERE account_type = 'DEBIT' AND supplier_id = '$company_id' GROUP BY purchase_invoice) c ON a.number = c.purchase_invoice
-        LEFT JOIN (SELECT purchase_invoice, SUM(payment) as payment FROM ap_payments WHERE account_type = 'CREDIT' AND supplier_id = '$company_id' GROUP BY purchase_invoice) d ON a.number = d.purchase_invoice
-        LEFT JOIN (SELECT number, document_no, company_id, description FROM journal_clearings WHERE company_id = '$company_id') e ON b.document_no = e.document_no AND b.company_id = e.company_id AND b.description = e.description
+        LEFT JOIN (SELECT purchase_invoice, SUM(payment) as payment FROM ap_payments WHERE account_type = 'DEBIT' GROUP BY purchase_invoice) c ON a.number = c.purchase_invoice
+        LEFT JOIN (SELECT purchase_invoice, SUM(payment) as payment FROM ap_payments WHERE account_type = 'CREDIT' GROUP BY purchase_invoice) d ON a.number = d.purchase_invoice
+        LEFT JOIN journal_clearings e ON b.document_no = e.document_no AND b.company_id = e.company_id AND b.description = e.description
         WHERE a.supplier_id = '$company_id' 
         AND ((b.original_credit - b.original_debit) - (COALESCE(c.payment, 0) - COALESCE(d.payment, 0))) != 0
         AND e.number is null
@@ -507,33 +506,33 @@ class Journal_posting_clearing extends CI_Controller
 
         $sql_4 = $this->db->query("SELECT 
             'PI' AS source,
-            a.number as documents,
-            a.invoice_date as trans_date,
-            a.due_date,
+            a.journal_type_id,
             a.number AS document_no,
+            a.trans_date AS document_date,
             a.invoice_no,
-            b.description,
-            b.journal_date AS voucher_date,
             b.number AS voucher_no,
+            a.supplier_id as company_id,
+            c.name as company_name,
+            a.invoice_date,
+            b.description,
             b.account_number,
             b.account_name,
             'INR' as currency,
-            ((b.local_credit - b.local_debit) - (COALESCE(c.payment, 0) - COALESCE(d.payment, 0))) as amount
+            ((b.local_credit - b.local_debit) - (COALESCE(d.payment, 0) - COALESCE(e.payment, 0))) as amount
         FROM purchase_invoices a
-        JOIN (SELECT journal_date, number, company_id, document_no, account_number, account_name, description, 
-                SUM(original_debit) AS original_debit, 
-                SUM(original_credit) AS original_credit,
-                SUM(local_debit) AS local_debit, 
-                SUM(local_credit) AS local_credit 
+        JOIN (SELECT journal_date, number, document_no, account_number, account_name, description, 
+            SUM(original_debit) AS original_debit, 
+            SUM(original_credit) AS original_credit, 
+            SUM(local_debit) AS local_debit, 
+            SUM(local_credit) AS local_credit 
             FROM journal_postings 
             WHERE account_number IN ('16000001','16000002','16000003','16000004','16000005','16000006','16000007','16000008') 
             GROUP BY document_no, account_number) b ON a.number = b.document_no
-        LEFT JOIN (SELECT purchase_invoice, SUM(payment) as payment FROM ap_payments WHERE account_type = 'DEBIT' AND supplier_id = '$company_id' GROUP BY purchase_invoice) c ON a.number = c.purchase_invoice
-        LEFT JOIN (SELECT purchase_invoice, SUM(payment) as payment FROM ap_payments WHERE account_type = 'CREDIT' AND supplier_id = '$company_id' GROUP BY purchase_invoice) d ON a.number = d.purchase_invoice
-        LEFT JOIN (SELECT number, document_no, company_id, description FROM journal_clearings WHERE company_id = '$company_id') e ON b.document_no = e.document_no AND b.company_id = e.company_id AND b.description = e.description
+        JOIN suppliers c ON a.supplier_id = c.id
+        LEFT JOIN (SELECT purchase_invoice, SUM(payment) as payment FROM ap_payments WHERE account_type = 'DEBIT' GROUP BY purchase_invoice) d ON a.number = d.purchase_invoice
+        LEFT JOIN (SELECT purchase_invoice, SUM(payment) as payment FROM ap_payments WHERE account_type = 'CREDIT' GROUP BY purchase_invoice) e ON a.number = e.purchase_invoice
         WHERE a.number IN ($document_no_str) and a.supplier_id = '$company_id' 
-        AND ((b.original_credit - b.original_debit) - (COALESCE(c.payment, 0) - COALESCE(d.payment, 0))) != 0
-        AND e.number is null
+        AND ((b.original_credit - b.original_debit) - (COALESCE(d.payment, 0) - COALESCE(e.payment, 0))) != 0
         GROUP BY a.number
         ORDER BY b.journal_date asc");
         $purchase_invoices = $sql_4->result_array();
@@ -1165,7 +1164,7 @@ class Journal_posting_clearing extends CI_Controller
         if ($option == "excel") {
             $format  = date("Ymd");
             header("Content-type: application/vnd-ms-excel");
-            header("Content-Disposition: attachment; filename=journal_clearing_$format.xls");
+            header("Content-Disposition: attachment; filename=posting_journals_$format.xls");
         }
         //Config
         $this->db->select('*');
@@ -1180,15 +1179,15 @@ class Journal_posting_clearing extends CI_Controller
         $filter_voucher = base64_decode($this->input->get('filter_voucher'));
 
         $this->db->select('a.*, b.name as journal_type_name');
-        $this->db->from('journal_clearings a');
+        $this->db->from('journal_postings a');
         $this->db->join('journal_types b', 'a.journal_type_id = b.id');
-        $this->db->join("(SELECT number, SUM(local_debit) as local_debit, SUM(local_credit) as local_credit FROM journal_postings GROUP BY number) c", 'a.number = c.number');
-        // $this->db->where('a.modul', 'CLEARING');
+        $this->db->where('a.modul', 'CLEARING');
         if ($filter_from != "" && $filter_to != "") {
             $this->db->where("a.journal_date BETWEEN '$filter_from' and '$filter_to'");
         }
         $this->db->like('a.journal_type_id', $filter_journal_type_id);
-        // $this->db->like('a.modul', $filter_modul);
+        $this->db->like('a.journal_type', $filter_journal_type);
+        $this->db->like('a.modul', $filter_modul);
         $this->db->like('a.number', $filter_voucher);
         $this->db->order_by('a.journal_date', 'asc');
         $this->db->order_by('a.number', 'asc');
@@ -1220,14 +1219,13 @@ class Journal_posting_clearing extends CI_Controller
         <table id="customers" border="1">
             <tr>
                 <th width="20">No</th>
-                <th>Source</th>
                 <th>Voucher No</th>
                 <th>Journal Date</th>
                 <th>Journal Type</th>
+                <th>Journal Category</th>
+                <th>Modul</th>
                 <th>Document No</th>
                 <th>Invoice No</th>
-                <th>Invoice Date</th>
-                <th>Company ID</th>
                 <th>Company Name</th>
                 <th>Trans Date</th>
                 <th>Description</th>
@@ -1240,23 +1238,20 @@ class Journal_posting_clearing extends CI_Controller
         foreach ($records as $data) {
             $html .= '<tr>
                     <td>' . $no . '</td>
-                    <td>' . $data['source'] . '</td>
                     <td>' . $data['number'] . '</td>
                     <td>' . $data['journal_date'] . '</td>
                     <td>' . $data['journal_type_name'] . '</td>
+                    <td>' . $data['journal_type'] . '</td>
+                    <td>' . $data['modul'] . '</td>
                     <td>' . $data['document_no'] . '</td>
                     <td>' . $data['invoice_no'] . '</td>
-                    <td>' . $data['invoice_date'] . '</td>
-                    <td>' . $data['company_id'] . '</td>
                     <td>' . $data['company_name'] . '</td>
                     <td>' . $data['trans_date'] . '</td>
                     <td>' . $data['description'] . '</td>
                     <td>' . $data['account_number'] . '</td>
                     <td>' . $data['account_name'] . '</td>
                     <td>' . $data['currency'] . '</td>
-                    <td>' . $data['amount'] . '</td>
-                    <td>' . $data['adjustment'] . '</td>
-                    <td>' . $data['balance'] . '</td>';
+                    <td>' . number_format(($data['local_debit'] - $data['local_credit']), 4) . '</td>';
             $no++;
         }
         $html .= '</table></body></html>';

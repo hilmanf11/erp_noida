@@ -89,7 +89,7 @@ class Purchase_orders extends CI_Controller
     public function readSupplier()
     {
         $post = isset($_POST['q']) ? $_POST['q'] : "";
-        $data = $this->crud->query("SELECT DISTINCT b.id, b.number, b.name FROM purchase_orders a JOIN suppliers b ON a.supplier_id = b.id WHERE b.name like '%$post%' ORDER BY b.name asc");
+        $data = $this->crud->query("SELECT DISTINCT b.id, b.number, b.name FROM purchase_orders a JOIN suppliers b ON a.supplier_id = b.id WHERE a.status = 0 and b.name like '%$post%' ORDER BY b.name asc");
         echo json_encode($data);
     }
 
@@ -98,6 +98,24 @@ class Purchase_orders extends CI_Controller
         $po_no = $this->input->post('po_no');
         $send = $this->crud->read('purchase_orders', [], ["po_no" => $po_no]);
         echo json_encode($send);
+    }
+
+    public function checkSupplier()
+    {
+        if ($this->input->post()) {
+            $supplier_id = $this->input->post('supplier_id');
+            $supplier = $this->crud->read("suppliers", [], ["id" => $supplier_id]);
+
+            if (($supplier->approved_to != "" || $supplier->approved_to != null)) {
+                die(json_encode(array("title" => "Failed", "message" => "Supplier still on process approvals", "theme" => "error")));
+            } elseif ($supplier->incoterm == "") {
+                die(json_encode(array("title" => "Failed", "message" => "Incoterm empty, please check in master supplier", "theme" => "error")));
+            } elseif ($supplier->terms == "") {
+                die(json_encode(array("title" => "Failed", "message" => "Terms Condition empty, please check in master supplier", "theme" => "error")));
+            } else {
+                die(json_encode(array("title" => "Ok", "message" => "Completed", "theme" => "success")));
+            }
+        }
     }
 
     function forecast($item_rm_id, $month, $year, $revision)
@@ -198,6 +216,7 @@ class Purchase_orders extends CI_Controller
         //Select Query
         $this->db->select("a.*, g.purchase_order as mrp_qty, b.number as supplier_no, b.name as supplier_name, f.mpq, f.moq, b.state,
             b.email, d.number as item_rm_number, d.name as item_rm_name, d.item_family_id, e.name as product_family, b.type as supplier_type, 
+            COALESCE(j.qty_receipt, 0) as por_qty,
             ((a.qty * a.price) * COALESCE(i.igst, 0) / 100) as digst,
             ((a.qty * a.price) * COALESCE(i.sgst, 0) / 100) as dsgst,
             ((a.qty * a.price) * COALESCE(i.cgst, 0) / 100) as dcgst,
@@ -210,6 +229,7 @@ class Purchase_orders extends CI_Controller
         $this->db->join('supplier_items f', 'a.supplier_id = f.supplier_id and a.item_rm_id = f.item_rm_id', 'left');
         $this->db->join('generate_mrp_finals g', 'a.p_month = g.p_month and a.p_year = g.p_year and a.revision = g.revision and a.item_rm_id = g.item_rm_id and a.supplier_id = g.supplier_id', 'left');
         $this->db->join('purchase_requests h', 'a.request_no = h.request_no', 'left');
+        $this->db->join("(SELECT item_rm_id, po_no, SUM(delivery) AS qty_receipt FROM purchase_confirm WHERE status != '2' GROUP BY item_rm_id, po_no) j", 'a.po_no = j.po_no and a.item_rm_id = j.item_rm_id', 'left');
         $this->db->join('hsn i', "d.hsn_code = i.number", 'left');
         $this->db->where('a.type', "PO");
         $this->db->where('a.po_no', $po_no);
@@ -606,33 +626,8 @@ class Purchase_orders extends CI_Controller
             $po_date = $this->input->post('po_date');
             $post = $this->input->post('data');
 
-            // $records = $this->crud->reads('purchase_orders', [], [
-            //     "p_month" => $post['p_month'],
-            //     "p_year" => $post['p_year'],
-            //     "revision" => $post['revision'],
-            //     "item_rm_id" => $post['item_rm_id'],
-            //     "supplier_id" => $post['supplier_id']
-            // ]);
+            $supplier = $this->crud->read("suppliers", [], ["id" => $post['supplier_id']]);
 
-            // if (count($records) > 0) {
-            //     $send = $this->db->update('purchase_orders', [
-            //         "qty" => $post['qty'],
-            //         "price" => $post['price'],
-            //         "total" => $post['total'],
-            //         "currency" => $post['currency'],
-            //         "month_1" => $post['month_1'],
-            //         "month_2" => $post['month_2'],
-            //         "month_3" => $post['month_3']
-            //     ],[
-            //         "p_month" => $post['p_month'],
-            //         "p_year" => $post['p_year'],
-            //         "revision" => $post['revision'],
-            //         "item_rm_id" => $post['item_rm_id'],
-            //         "supplier_id" => $post['supplier_id']
-            //     ]);
-
-            //     echo $send;
-            // } else {
             $postFinal = array(
                 "supplier_id" => $post['supplier_id'],
                 "item_rm_id" => $post['item_rm_id'],
@@ -656,7 +651,7 @@ class Purchase_orders extends CI_Controller
             );
 
             $this->db->update('generate_mrp_finals', ["status" => 1], ["p_month" => $post['p_month'], "p_year" => $post['p_year'], "revision" => $post['revision'], "item_rm_id" => $post['item_rm_id'], "supplier_id" => $post['supplier_id']]);
-            $send = $this->crud->create('purchase_orders', $postFinal);
+            $send = $this->crud->create('purchase_orders', array_merge($postFinal, ["terms" => $supplier->terms, "incoterm" => $supplier->incoterm, "payment_term" => $supplier->payment_term]));
             $this->db->update('purchase_orders', ["approved_to" => ""], ["po_no" => $po_no, "item_rm_id" => $post['item_rm_id']]);
             echo $send;
             // }
@@ -845,22 +840,41 @@ class Purchase_orders extends CI_Controller
             $po_no = @$databf->po_no;
             $maxRev = $this->crud->query("SELECT max(rev) as rev FROM purchase_orders WHERE po_no = '$po_no'");
 
-            $send = $this->crud->update(
-                'purchase_orders',
-                ["id" => $id],
-                [
-                    "po_no" => $post['po_no'],
-                    "supplier_id" => $post['supplier_id'],
-                    "qty" => $post['qty'],
-                    "price" => $post['price'],
-                    "currency" => $post['currency'],
-                    "total" => $total,
-                    "remarks" => $post['remarks'],
-                    "status_edit" => 1,
-                    "rev" => (@$maxRev->rev + 1),
-                    "log" => json_encode(["qty" => $databf->qty, "total" => $databf->total, "revision" => $databf->revision, "log" => $databf->log, "remarks" => $databf->remarks])
-                ]
-            );
+            if ($post['qty'] > $post['mrp_qty']) {
+                $send = $this->crud->update(
+                    'purchase_orders',
+                    ["id" => $id],
+                    [
+                        "po_no" => $post['po_no'],
+                        "supplier_id" => $post['supplier_id'],
+                        "qty" => $post['qty'],
+                        "price" => $post['price'],
+                        "currency" => $post['currency'],
+                        "total" => $total,
+                        "remarks" => $post['remarks'],
+                        "status_edit" => 1,
+                        "rev" => (@$maxRev->rev + 1),
+                        "log" => json_encode(["qty" => $databf->qty, "total" => $databf->total, "revision" => $databf->revision, "log" => $databf->log, "remarks" => $databf->remarks])
+                    ]
+                );
+            } else {
+                $send = $this->db->update(
+                    'purchase_orders',
+                    [
+                        "po_no" => $post['po_no'],
+                        "supplier_id" => $post['supplier_id'],
+                        "qty" => $post['qty'],
+                        "price" => $post['price'],
+                        "currency" => $post['currency'],
+                        "total" => $total,
+                        "remarks" => $post['remarks'],
+                        "status_edit" => 1,
+                        "rev" => (@$maxRev->rev + 1),
+                        "log" => json_encode(["qty" => $databf->qty, "total" => $databf->total, "revision" => $databf->revision, "log" => $databf->log, "remarks" => $databf->remarks])
+                    ],
+                    ["id" => $id],
+                );
+            }
 
             if ($send) {
                 echo json_encode(array("title" => "Good Job", "message" => "Update data Successfully", "theme" => "success"));
@@ -960,24 +974,18 @@ class Purchase_orders extends CI_Controller
         $data = $this->input->post();
 
         $reads = $this->crud->reads('purchase_orders', ["po_no" => $data['po_no']]);
-        $por = $this->crud->reads('purchase_confirm', ["po_no" => $data['po_no']]);
-
-        if (empty($por)) {
-            foreach ($reads as $read) {
-                $this->db->update('generate_mrp_finals', ["status" => 0], [
-                    "p_month" => $read->p_month,
-                    "p_year" => $read->p_year,
-                    "revision" => $read->revision,
-                    "item_rm_id" => $read->item_rm_id,
-                    "supplier_id" => $read->supplier_id,
-                ]);
-            }
-
-            $send = $this->crud->delete('purchase_orders', ["po_no" => $data['po_no']]);
-            echo $send;
-        } else {
-            echo json_encode(array("title" => "Failed", "message" => "this PO already created in Gate Entry", "theme" => "error"));
+        foreach ($reads as $read) {
+            $this->db->update('generate_mrp_finals', ["status" => 0], [
+                "p_month" => $read->p_month,
+                "p_year" => $read->p_year,
+                "revision" => $read->revision,
+                "item_rm_id" => $read->item_rm_id,
+                "supplier_id" => $read->supplier_id,
+            ]);
         }
+
+        $send = $this->crud->delete('purchase_orders', ["po_no" => $data['po_no']]);
+        echo $send;
     }
 
     public function upload()
@@ -1356,6 +1364,8 @@ class Purchase_orders extends CI_Controller
                                     <br><br>
                                     <div style="font-size:12px !important;">
                                         <b style="font-size:16px !important;">Term & Condition</b><br><br>
+                                        <b style="font-size:16px !important;">Payment Term : ' . $purchase_orders->payment_term . ' Days</b><br> 
+                                        <b style="font-size:16px !important;">Incoterm : ' . $purchase_orders->incoterm . '</b><br><br>
                                         ' . $purchase_orders->terms . '
                                     </div>
                                 </div>

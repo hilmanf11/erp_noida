@@ -276,7 +276,7 @@ class Journal_posting_adjustments extends CI_Controller
         //Select Query
         $this->db->select('a.*, b.account_name');
         $this->db->from('journal_postings a');
-        $this->db->join('account_coa b', 'a.account_number = b.account_number', 'left');
+        $this->db->join('account_coa b', 'a.account_number = b.account_number');
         $this->db->where('a.number', $number);
         if (@count($filters) > 0) {
             foreach ($filters as $filter) {

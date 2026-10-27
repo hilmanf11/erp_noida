@@ -146,7 +146,7 @@ class Sales_orders extends CI_Controller
             $this->db->select("a.*, b.name as customer_name, COALESCE(SUM(c.qty_delivery), 0) as qty_delivery, SUM(a.qty) as qty_so, (SUM(a.qty) - COALESCE(SUM(c.qty_delivery), 0)) as qty_outstanding, SUM(total) as total_sub2");
             $this->db->from('sales_orders a');
             $this->db->join('customers b', 'a.customer_id = b.id');
-            $this->db->join("(select item_fg_id, sales_order_no, SUM(qty) as qty_delivery from delivery_notes WHERE status != 2 GROUP by sales_order_no, item_fg_id) c", 'a.sales_order_no = c.sales_order_no and a.item_fg_id = c.item_fg_id', 'left');
+            $this->db->join("(select item_fg_id, sales_order_no, SUM(qty) as qty_delivery from delivery_notes GROUP by sales_order_no, item_fg_id) c", 'a.sales_order_no = c.sales_order_no and a.item_fg_id = c.item_fg_id', 'left');
             if ($filter_from != "" && $filter_to != "") {
                 $this->db->where('a.sales_order_date >=', $filter_from);
                 $this->db->where('a.sales_order_date <=', $filter_to);
@@ -183,7 +183,7 @@ class Sales_orders extends CI_Controller
             $this->db->select('a.*, b.number as item_fg_number, b.name as item_fg_name, b.number_customer, COALESCE(c.qty_delivery, 0) as qty_delivery, (a.qty_so - COALESCE(c.qty_delivery, 0)) as qty_outstanding');
             $this->db->from('(select *, SUM(qty) as qty_so from sales_orders GROUP by sales_order_no, item_fg_id) a');
             $this->db->join('item_fg b', 'a.item_fg_id = b.id');
-            $this->db->join("(select sales_order_no, item_fg_id, SUM(qty) as qty_delivery from delivery_notes WHERE status != 2 GROUP by sales_order_no, item_fg_id) c", 'a.sales_order_no = c.sales_order_no AND a.item_fg_id = c.item_fg_id', 'left');
+            $this->db->join("(select sales_order_no, item_fg_id, SUM(qty) as qty_delivery from delivery_notes GROUP by sales_order_no, item_fg_id) c", 'a.sales_order_no = c.sales_order_no AND a.item_fg_id = c.item_fg_id', 'left');
             $this->db->where('a.sales_order_no', $sales_order_no);
             $this->db->like('a.item_fg_id', $filter_item_fg);
             $this->db->group_by('a.sales_order_no');
@@ -547,7 +547,7 @@ class Sales_orders extends CI_Controller
         $this->db->from('(select *, SUM(qty) as qty_so from sales_orders GROUP by sales_order_no, item_fg_id) a');
         $this->db->join('item_fg b', 'a.item_fg_id = b.id');
         $this->db->join('customers d', 'a.customer_id = d.id');
-        $this->db->join("(select sales_order_no, item_fg_id, SUM(qty) as qty_delivery from delivery_notes WHERE delivery_note_date BETWEEN '$filter_from' AND '$filter_to' and status != 2 GROUP by sales_order_no, item_fg_id) c", 'a.sales_order_no = c.sales_order_no AND a.item_fg_id = c.item_fg_id', 'left');
+        $this->db->join("(select sales_order_no, item_fg_id, SUM(qty) as qty_delivery from delivery_notes WHERE delivery_note_date BETWEEN '$filter_from' AND '$filter_to' GROUP by sales_order_no, item_fg_id) c", 'a.sales_order_no = c.sales_order_no AND a.item_fg_id = c.item_fg_id', 'left');
         if ($filter_from != "" && $filter_to != "") {
             $this->db->where('a.sales_order_date >=', $filter_from);
             $this->db->where('a.sales_order_date <=', $filter_to);

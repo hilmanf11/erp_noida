@@ -568,24 +568,8 @@
                                             },
                                         });
 
-                                        $.ajax({
-                                            type: "post",
-                                            url: '<?= base_url('warehouse/wip_receipts/create2') ?>',
-                                            data: JSON.stringify({
-                                                dataBom: combinedBom
-                                            }),
-                                            dataType: "json",
-                                            success: function(result2) {
-                                                if (result2.theme == "success") {
-                                                    requestData(totalrows, rows);
-                                                } else {
-                                                    Swal.close();
-                                                    toastr.success("Create Data Failed Please Try Again");
-                                                }
-                                            }
-                                        });
+                                        requestData(totalrows, rows);
 
-                                        // requestData(totalrows, rows);
                                         function requestData(total, json, number = 1, value = 0, success = 1, failed = 1) {
                                             var i = (number - 1);
                                             if (value < 100) {
@@ -605,6 +589,7 @@
                                                         qty: json[i].qty,
                                                         lot_box: json[i].qty_box,
                                                         label_box: json[i].label_box,
+                                                        details: combinedBom
                                                     },
                                                     dataType: "json",
                                                     success: function(result) {

@@ -8,14 +8,6 @@
                 <input style="width:30%;" id="filter_to" value="<?= date("Y-m-t") ?>" class="easyui-datebox" data-options="prompt:'Finish Date',formatter:myformatter,parser:myparser, editable:false">
             </div>
             <div class="fitem">
-                <span style="width:35%; display:inline-block;">Display</span>
-                <select style="width:60%;" id="display" class="easyui-combobox" panelHeight="auto" editable="false">
-                    <option value="Before">Before Closing Entries</option>
-                    <option value="After">After Closing Entries</option>
-                    <option value="Comparison">Comparison</option>
-                </select>
-            </div>
-            <div class="fitem">
                 <span style="width:35%; display:inline-block;"></span>
                 <a href="javascript:;" class="easyui-linkbutton" onclick="filter()"><i class="fa fa-search"></i> Filter Data</a>
             </div>
@@ -56,14 +48,135 @@
         return formatBaru;
     }
 
+    function add(){
+        var filter_from = $("#filter_from").datebox('getValue');
+        var filter_to = $("#filter_to").datebox('getValue');
+
+        if(formatDate(filter_from) != formatDate(filter_to)){
+            toastr.error("The Period only by monthly");
+            return false;
+        }
+
+        $.ajax({
+            type: "post",
+            url: "<?= base_url('closing/locks/checkLock') ?>",
+            data: "period=" + filter_from + "&menus_id=<?= $menus_id ?>",
+            dataType: "json",
+            success: function (lock) {
+                if(lock.total > 0){
+                    toastr.error("This period is not active by Accounting");
+                    return false;
+                }
+
+                if(filter_from != ""){
+                    $.messager.confirm('Warning', 'Are you sure you want to generate period '+formatDate(filter_from)+' ?', function(r) {
+                        if (r) {
+                            Swal.fire({
+                                title: 'Please Wait for Save Trial Balance',
+                                showConfirmButton: false,
+                                allowOutsideClick: false,
+                                allowEscapeKey: false,
+                                didOpen: () => {
+                                    Swal.showLoading();
+                                },
+                            });
+
+                            $("#p_remarks").html("");
+
+                            $.ajax({
+                                type: "post",
+                                url: '<?= base_url('finance/report_trial_balances/getData') ?>',
+                                data: {
+                                    filter_from: filter_from,
+                                    filter_to: filter_to,
+                                },
+                                dataType: "json",
+                                success: function(data) {
+                                    Swal.close();
+
+                                    if(data.total > 0){
+                                        requestData(data.total, data.rows);
+                                        $('#dlg_generate').dialog('open');
+
+                                        function requestData(total, json, jml = 1, value = 0) {
+                                            if (value < 100) {
+                                                value = Math.floor((jml / total) * 100);
+                                                var i = (jml - 1);
+
+                                                $('#p_upload').progressbar('setValue', value);
+                                                $('#p_start').html(jml);
+                                                $('#p_finish').html(data.total);
+
+                                                $.ajax({
+                                                    type: "post",
+                                                    url: '<?= base_url('finance/report_trial_balances/create') ?>',
+                                                    data: {
+                                                        data: json[i]
+                                                    },
+                                                    dataType: "json",
+                                                    success: function(result) {
+                                                        requestData(total, json, jml + 1, value);
+
+                                                        if (result.theme == "success") {
+                                                            var title = "<b style='color: green;'>" + result.title + "</b> | " + result.message;
+                                                        } else {
+                                                            var title = "<b style='color: red;'>" + result.title + "</b> | " + result.message;
+                                                        }
+
+                                                        $("#p_remarks").append(title + "<br>");
+
+                                                        if (i == (data.total - 1)) {
+                                                            $('#dlg_generate').dialog('close');
+
+                                                            Swal.fire({
+                                                                title: result.message,
+                                                                icon: result.theme,
+                                                                confirmButtonText: 'Ok',
+                                                                allowOutsideClick: false,
+                                                            }).then((result) => {
+                                                                // if (result.isConfirmed) {
+                                                                //     window.location.reload();
+                                                                // }
+                                                            });
+                                                        }
+                                                    },
+                                                    error: function(xhr, status, error){
+                                                        if (status === 'timeout') {
+                                                            toastr.error('Connection Timeout, Lets Try Again');
+                                                            setTimeout(function() {
+                                                                requestData(total, json, jml, value);
+                                                            }, 3000);
+                                                        } else {
+                                                            toastr.error('Failed to Save Data, Lets Try Again' + error);
+                                                            requestData(total, json, jml, value);
+                                                        }
+                                                    }
+                                                });
+                                            }
+                                        }
+                                    }else{
+                                        toastr.warning("Data not Found!");
+                                    }
+                                }, error(){
+                                    toastr.error("Cutoff Period in Chart of Account not match");
+                                    Swal.close();
+                                }
+                            });
+                        }
+                    });
+                }else{
+                    toastr.warning("Please select Trans Date!");
+                }
+            }
+        });
+    }
+
     function filter() {
         var filter_from = $("#filter_from").datebox("getValue");
         var filter_to = $("#filter_to").datebox("getValue");
-        var display = $("#display").combobox("getValue");
 
         var url = "?filter_from=" + window.btoa(filter_from) +
-            "&filter_to=" + window.btoa(filter_to) +
-            "&display=" + display;
+            "&filter_to=" + window.btoa(filter_to);
 
         if (filter_from == "" || filter_to == "") {
             toastr.warning("Please select Trans Date!");
@@ -76,11 +189,9 @@
     function excel() {
         var filter_from = $("#filter_from").datebox("getValue");
         var filter_to = $("#filter_to").datebox("getValue");
-        var display = $("#display").combobox("getValue");
 
         var url = "?filter_from=" + window.btoa(filter_from) +
-            "&filter_to=" + window.btoa(filter_to) +
-            "&display=" + display;
+            "&filter_to=" + window.btoa(filter_to);
 
         if (filter_from == "" || filter_to == "") {
             toastr.warning("Please select Trans Date!");

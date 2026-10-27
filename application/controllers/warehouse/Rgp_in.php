@@ -1188,8 +1188,7 @@ class Rgp_in extends CI_Controller
             (CASE 
                 WHEN e.id is not null THEN e.name
                 ELSE f.name
-            END) as company_name,
-            g.is_dol, g.id as dol_id
+            END) as company_name
         ");
         $this->db->from('rgp_transaction_labels a');
         $this->db->join('rgp_transactions b', 'a.rgp_number = b.number');
@@ -1197,7 +1196,6 @@ class Rgp_in extends CI_Controller
         $this->db->join('item_fg d', 'a.item_id = d.id', 'left');
         $this->db->join('suppliers e', 'b.company_id = e.id', 'left');
         $this->db->join('customers f', 'b.company_id = f.id', 'left');
-        $this->db->join('dol_items g', 'b.company_id = g.supplier_id and a.item_id = g.item_rm_id', 'left');
         $this->db->where('a.deleted', 0);
         $this->db->where('a.item_id', $item_id);
         //$this->db->where('a.status', 0);
@@ -1226,17 +1224,6 @@ class Rgp_in extends CI_Controller
                     } else {
                         $padding = "padding:2mm 3mm 3mm 2mm;";
                     }
-
-                    if(empty(@$record->dol_id)){
-                        die("NOT AVAILABLE IN DOL MASTER");
-                    }else{
-                        if(@$record->is_dol == "0"){
-                            $dol = "<b style='color:green; font-size:15px;'>DOL</b>";
-                        }else{
-                            $dol = "<b style='color:red; font-size:15px;'>NON DOL</b>";
-                        }
-                    }
-
                     //Generate QRcode
                     $this->createQrcode($record->label_no, "assets/image/qrcode/");
                     $html .= '  <div style="width: 44mm; max-height:40mm; float:left; ' . $padding . '">
@@ -1264,7 +1251,7 @@ class Rgp_in extends CI_Controller
                                                 <small style="font-size:15px; float: right;"><b>' . $record->uom . '</b></small>
                                             </th>
                                             <th style="text-align:left">
-                                                '.$dol.'
+                                                <small>Location</small><br><b style="font-size:15px;">-</b><br>
                                             </th>
                                         </tr>
                                         

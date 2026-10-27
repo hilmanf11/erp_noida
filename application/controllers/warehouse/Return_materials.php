@@ -40,51 +40,17 @@ class Return_materials extends CI_Controller
     {
         $post = isset($_POST['q']) ? $_POST['q'] : "";
         $workorder = base64_decode($workorder);
-        $trans_date = date("Y-m-d");
        
-        $this->db->select('c.id, c.number, c.name, a.mpq, b.price');
+        $this->db->select('c.id, c.number, c.name, a.mpq');
         $this->db->from('supply_sheets a');
-        $this->db->join("(select distinct request_no, item_rm_id, price from issued_material_details) b", 'a.request_no = b.request_no and a.item_rm_id = b.item_rm_id');
         $this->db->join('item_rm c', 'a.item_rm_id = c.id');
         $this->db->where('a.workorder', $workorder);
         $this->db->like('c.number', $post);
         $this->db->group_by('a.id');
         $this->db->order_by('a.id', 'ASC');
         $records = $this->db->get()->result_array();
-        
-        $arrStock = [];
-        if(count($records) > 0){
-            $stocks = $this->db->query("SELECT a.id, (COALESCE(c.issued, 0) + COALESCE(g.adjustment_in, 0) - COALESCE(abs(i.adjustment_out), 0) - COALESCE(d.return, 0) - COALESCE(e.ng, 0) - COALESCE(f.scrap, 0) - COALESCE(h.rfg, 0)) AS stock
-                FROM item_rm a
-                JOIN item_familys b ON a.item_family_id = b.id
-                LEFT JOIN (SELECT item_rm_id, SUM(qty) AS issued FROM issued_material_details WHERE DATE_FORMAT(created_date, '%Y-%m-%d') <= '$trans_date' and request_no NOT LIKE '%PR-%' GROUP BY item_rm_id) c ON a.id = c.item_rm_id
-                LEFT JOIN (SELECT item_rm_id, SUM(qty) AS `return` FROM return_materials WHERE return_date <= '$trans_date' GROUP BY item_rm_id) d ON a.id = d.item_rm_id
-                LEFT JOIN (SELECT item_rm_id, SUM(qty) AS ng FROM scraps WHERE trans_date <= '$trans_date' and source = 'Vendor' and (approved_to = '' or approved_to is null) GROUP BY item_rm_id) e ON a.id = e.item_rm_id
-                LEFT JOIN (SELECT item_rm_id, SUM(qty) AS scrap FROM scraps WHERE trans_date <= '$trans_date' and source = 'User' and (approved_to = '' or approved_to is null) GROUP BY item_rm_id) f ON a.id = f.item_rm_id
-                LEFT JOIN (SELECT item_rm_id, SUM(qty) AS adjustment_in FROM sto_wip WHERE trans_date <= '$trans_date' and qty > 0 GROUP BY item_rm_id) g ON a.id = g.item_rm_id
-                LEFT JOIN (SELECT item_rm_id, SUM(qty) AS adjustment_out FROM sto_wip WHERE trans_date <= '$trans_date' and qty < 0 GROUP BY item_rm_id) i ON a.id = i.item_rm_id
-                LEFT JOIN (SELECT item_rm_id, SUM(consumed) AS rfg FROM wip_receipt_balance WHERE DATE_FORMAT(created_date, '%Y-%m-%d') <= '$trans_date' GROUP BY item_rm_id) h ON a.id = h.item_rm_id
-                WHERE a.item_category_id = 'C01'
-                GROUP BY a.id
-                ORDER BY a.number")->result_array();
-            foreach ($stocks as $stock) {
-                $arrStock[$stock['id']] = $stock['stock'];
-            }
-        }
 
-        $data = [];
-        foreach ($records as $record) {
-            $data[] = array(
-                "id" => $record['id'],
-                "number" => $record['number'],
-                "name" => $record['name'],
-                "mpq" => $record['mpq'],
-                "price" => $record['price'],
-                "wip" => $arrStock[$record['id']],
-            );
-        }
-
-        echo json_encode($data);
+        echo json_encode($records);
     }
 
     public function return_no()
@@ -194,7 +160,6 @@ class Return_materials extends CI_Controller
                     "workorder" => $record['workorder'],
                     "uom" => $record['uom'],
                     "qty" => $record['qty'],
-                    "price" => $record['price'],
                     "mpq" => $record['mpq'],
                     "status" => $record['status']
                 );

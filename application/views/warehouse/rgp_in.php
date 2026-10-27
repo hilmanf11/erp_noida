@@ -16,7 +16,6 @@
             <th rowspan="2" data-options="field:'departement_name',width:150,halign:'center'">Departement</th>
             <th rowspan="2" data-options="field:'reference_number',width:150,halign:'center'">Reference</th>
             <th rowspan="2" data-options="field:'rgp_number',width:200,halign:'center'">RGP Out No.</th>
-            <th rowspan="2" data-options="field:'wms',width:120,align:'center',formatter:BtnWms">WMS</th>
             <th colspan="3" data-options="field:'',width:100,halign:'center'">Approved</th>
             <th colspan="2" data-options="field:'',width:100,halign:'center'"> Created</th>
             <th colspan="2" data-options="field:'',width:100,halign:'center'"> Updated</th>
@@ -1825,73 +1824,6 @@
 
     }
 
-    function BtnWms(val, row) {
-        if(row.process_type == "RGP"){
-            return '-';
-        }else{
-            if (row.transaction_date >= "2026-07-02") {
-                var onClick = "sendWms('"+row.number+"','"+row.process_type+"')";
-                return '<a class="btn btn-primary w-100" style="pointer-events: visible; opacity:1;" target="_blank" onClick="'+onClick+'"><i class="fa fa-database"></i> Send Data</a>';
-            }else{
-                return '-';
-            }
-        }
-    }
-
-    function sendWms(receipt_no, process_type){
-        $.messager.confirm('Confirm','Are you sure you want to send data to WMS?', function(r){
-            if (r){
-                Swal.fire({
-                    title: 'Please Wait for Sending Data',
-                    showConfirmButton: false,
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    },
-                });
-
-                if(process_type == "FOC"){
-                    var burl = "<?= base_url("api/wms/focIn") ?>";
-                }else{
-                    var burl = "<?= base_url("api/wms/nrgpIn") ?>";
-                }
-
-                $.ajax({
-                    type: "post",
-                    url: burl,
-                    data: {
-                        receipt_no: receipt_no
-                    },
-                    dataType: "json",
-                    success: function (msg) {
-                        if(msg.success){
-                            Swal.fire("", msg.message, "success");
-                            // $.ajax({
-                            //     type: "post",
-                            //     url: '<?= base_url('api/wms/gateEntryClosing') ?>',
-                            //     data: {receipt_no: receipt_no},
-                            //     dataType: "json",
-                            //     success: function (si) {
-                            //         $('#dg').datagrid('reload');
-
-                            //         Swal.fire(
-                            //             "Info",
-                            //             msg.message,
-                            //             "success"
-                            //         );
-                            //     }
-                            // });
-                        }else{
-                            Swal.fire("", msg.message, "error");
-                        }
-                    }, error: function(){
-                        Swal.fire("", "Failed to Sending Data WMS", "error");
-                    }
-                });
-            }
-        });
-    }
 
     function cellStylerApproval(value, row, index) {
         // if (row.approved_to == null) {

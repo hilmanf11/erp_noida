@@ -357,118 +357,15 @@ class Wip_receipts extends CI_Controller
         }
     }
 
-    public function checkBomNotCreate()
-    {
-        $sql = $this->db->query("SELECT * FROM wip_receipts WHERE checksheet_number NOT IN (SELECT DISTINCT checksheet_number FROM wip_receipt_balance) limit 10");
-        // $sql = $this->db->query("SELECT * FROM wip_receipts WHERE checksheet_number = 'RFG-252610000058'");
-        $datas = $sql->result_array();
-
-        $this->db->trans_start();
-        foreach ($datas as $data) {
-            $item_fg_id = $data['item_fg_id'];
-
-            $sqlBom = $this->db->query("SELECT a.*, b.uom FROM bom a JOIN item_rm b ON a.item_rm_id = b.id WHERE a.item_fg_id = '$item_fg_id'");
-            $dataBoms = $sqlBom->result_array();
-
-            $arr = array();
-            $no = 1;
-            foreach ($dataBoms as $dataBom) {
-                $arr = array(
-                    "checksheet_number" => $data['checksheet_number'],
-                    "customer_id" => $data['customer_id'],
-                    "item_fg_id" => $data['item_fg_id'],
-                    "item_rm_id" => $dataBom['item_rm_id'],
-                    "workorder" => $data['workorder'],
-                    "wp" => $data['wp'],
-                    "uom" => $dataBom['uom'],
-                    "qpa" => $dataBom['composition'],
-                    "rfg" => $data['qty'],
-                    "consumed" => round($data['qty'] * $dataBom['composition'], 2)
-                );
-
-                $read = $this->crud->reads("wip_receipt_balance", [], ["checksheet_number" => $data['checksheet_number'], "item_rm_id" => $dataBom['item_rm_id']]);
-
-                if (count($read) > 0) {
-                    echo json_encode(array("title" => "Error", "message" => "Duplicate Checksheet Number, Please try again", "theme" => "error"));
-                } else {
-                    $this->db->insert("wip_receipt_balance", $arr);
-                    echo $no . "_" . $data['checksheet_number'] . "_" . $data['item_fg_id'] . "_" . $dataBom['item_rm_id'] . "_" . $data['qty'] . "_" . $dataBom['composition'] . "_" . round($data['qty'] * $dataBom['composition'], 2) . "<br>";
-                }
-                $no++;
-            }
-
-            echo "<br><br><br>";
-        }
-
-        $this->db->trans_complete();
-        if ($this->db->trans_status() === FALSE) {
-            // Sesuatu gagal, data otomatis di-rollback
-            echo "Transaksi Gagal!";
-        } else {
-            // Semua berhasil, data sudah di-commit
-            echo "Transaksi Berhasil!";
-        }
-    }
-
-    public function checkWorkorderFail()
-    {
-        $sql = $this->db->query("SELECT * FROM wip_receipts WHERE checksheet_number = 'RFG-262710002285'");
-        // $sql = $this->db->query("SELECT * FROM wip_receipts WHERE checksheet_number = 'RFG-252610000058'");
-        $datas = $sql->result_array();
-
-        $this->db->trans_start();
-        foreach ($datas as $data) {
-            $item_fg_id = $data['item_fg_id'];
-
-            $sqlBom = $this->db->query("SELECT a.*, b.uom FROM bom a JOIN item_rm b ON a.item_rm_id = b.id WHERE a.item_fg_id = '$item_fg_id'");
-            $dataBoms = $sqlBom->result_array();
-
-            $arr = array();
-            $no = 1;
-            foreach ($dataBoms as $dataBom) {
-                $arr = array(
-                    "checksheet_number" => $data['checksheet_number'],
-                    "customer_id" => $data['customer_id'],
-                    "item_fg_id" => $data['item_fg_id'],
-                    "item_rm_id" => $dataBom['item_rm_id'],
-                    "workorder" => $data['workorder'],
-                    "wp" => $data['wp'],
-                    "uom" => $dataBom['uom'],
-                    "qpa" => $dataBom['composition'],
-                    "rfg" => $data['qty'],
-                    "consumed" => round($data['qty'] * $dataBom['composition'], 2)
-                );
-
-                $read = $this->crud->reads("wip_receipt_balance", [], ["checksheet_number" => $data['checksheet_number'], "item_rm_id" => $dataBom['item_rm_id']]);
-
-                if (count($read) > 0) {
-                    echo json_encode(array("title" => "Error", "message" => "Duplicate Checksheet Number, Please try again", "theme" => "error"));
-                } else {
-                    $this->db->insert("wip_receipt_balance", $arr);
-                    echo $no . "_" . $data['checksheet_number'] . "_" . $data['item_fg_id'] . "_" . $dataBom['item_rm_id'] . "_" . $data['qty'] . "_" . $dataBom['composition'] . "_" . round($data['qty'] * $dataBom['composition'], 2) . "<br>";
-                }
-                $no++;
-            }
-
-            echo "<br><br><br>";
-        }
-
-        $this->db->trans_complete();
-        if ($this->db->trans_status() === FALSE) {
-            // Sesuatu gagal, data otomatis di-rollback
-            echo "Transaksi Gagal!";
-        } else {
-            // Semua berhasil, data sudah di-commit
-            echo "Transaksi Berhasil!";
-        }
-    }
-
     public function create()
     {
         if ($this->input->post()) {
             if ($this->form_validation->run() == TRUE) {
                 $post = $this->input->post();
                 $workorder = $post['workorder'];
+                $dataBoms = $post['details'];
+                unset($post['details']);
+
                 $qProses = $this->db->query("SELECT a.workorder, a.qty, SUM(b.qty) AS receipt FROM production_schedules a 
                     JOIN wip_receipts b ON a.item_fg_id = b.item_fg_id AND a.workorder = b.workorder
                     WHERE a.workorder = '$workorder'");
@@ -517,41 +414,38 @@ class Wip_receipts extends CI_Controller
                     }
                 }
 
+                foreach ($dataBoms as $dataBom) {
+                    if ($post['workorder'] != $dataBom['workorder']) {
+                        die(json_encode(array("title" => "Error", "message" => "Workorder not correct, please try again", "theme" => "error")));
+                    }
+
+                    if ($post['item_fg_id'] != $dataBom['item_fg_id']) {
+                        die(json_encode(array("title" => "Error", "message" => "Product No is not correct, please try again", "theme" => "error")));
+                    }
+                }
+
+                $this->db->delete('wip_receipt_balance', ["checksheet_number" => $post['checksheet_number']]);
+                $this->db->trans_start();
+                foreach ($dataBoms as $dataBom) {
+                    $this->db->insert('wip_receipt_balance', $dataBom);
+                }
+
                 $read = $this->crud->reads("wip_receipts", [], ["checksheet_number" => $post['checksheet_number']]);
                 if (count($read) > 0) {
-                    echo json_encode(array("title" => "Error", "message" => "Duplicate Checksheet Number, Please try again", "theme" => "error"));
+                    die(json_encode(array("title" => "Error", "message" => "Duplicate Checksheet Number, Please try again", "theme" => "error")));
                 } else {
-                    $send_wip_receipt = $this->crud->create('wip_receipts', $post);
+                    $this->crud->create('wip_receipts', $post);
                     $this->db->update('production_schedules', ["status_wip" => 1], ["workorder" => $post['workorder']]);
-                    die($send_wip_receipt);
+                }
+
+                $this->db->trans_complete();
+                if ($this->db->trans_status() === FALSE) {
+                    echo json_encode(array("title" => "Error", "message" => "Data Saved Failed", "theme" => "error"));
+                } else {
+                    echo json_encode(array("title" => "Success", "message" => "Data Saved Successfully", "theme" => "success"));
                 }
             } else {
                 show_error(validation_errors());
-            }
-        } else {
-            show_error("Cannot Process your request");
-        }
-    }
-
-    public function create2()
-    {
-        if ($this->input->post()) {
-            $jsonData = file_get_contents("php://input");
-            $data = json_decode($jsonData, true);
-            $dataBoms = $data['dataBom'];
-
-            $this->db->delete('wip_receipt_balance', ["checksheet_number" => @$dataBoms[0]['checksheet_number']]);
-
-            $this->db->trans_start();
-            foreach ($dataBoms as $dataBom) {
-                $this->db->insert('wip_receipt_balance', $dataBom);
-            }
-            $this->db->trans_complete();
-
-            if ($this->db->trans_status() === FALSE) {
-                echo json_encode(array("title" => "Error", "message" => "Data Saved Failed", "theme" => "error"));
-            } else {
-                echo json_encode(array("title" => "Success", "message" => "Data Saved Successfully", "theme" => "success"));
             }
         } else {
             show_error("Cannot Process your request");

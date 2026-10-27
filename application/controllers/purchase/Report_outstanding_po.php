@@ -70,7 +70,7 @@ class Report_outstanding_po extends CI_Controller
         $this->db->from('config');
         $config = $this->db->get()->row();
         
-        $sql = $this->db->query("SELECT a.id AS item_rm_id, a.number AS item_rm_number, a.name AS item_rm_name, a.uom, b.po_no, b.po_date, f.currency, b.price, e.name as item_family_name, f.id as supplier_id, f.name as supplier_name,
+        $sql = $this->db->query("SELECT a.id AS item_rm_id, a.number AS item_rm_number, a.name AS item_rm_name, a.uom, b.po_no, e.name as item_family_name, f.id as supplier_id, f.name as supplier_name,
             COALESCE(d.begin_stock, 0) AS begin_stock,
             COALESCE(SUM(b.qty), 0) AS qty_po, 
             COALESCE(c.qty_receipt, 0) AS qty_receipt, 
@@ -127,9 +127,6 @@ class Report_outstanding_po extends CI_Controller
                     <th>Supplier ID</th>
                     <th>Supplier Name</th>
                     <th>PO No</th>
-                    <th>PO Date</th>
-                    <th>Currency</th>
-                    <th>Price</th>
                     <th>Uom</th>
                     <th>Begin Balance</th>
                     <th>Qty PO</th>
@@ -177,9 +174,6 @@ class Report_outstanding_po extends CI_Controller
                             <td>' . $record['supplier_id'] . '</td>
                             <td>' . $record['supplier_name'] . '</td>
                             <td>' . $record['po_no'] . '</td>
-                            <td>' . $record['po_date'] . '</td>
-                            <td>' . $record['currency'] . '</td>
-                            <td>' . $record['price'] . '</td>
                             <td>' . $record['uom'] . '</td>
                             <td style="text-align:right;">' . number_format($begin_stock, 2) . '</td>
                             <td style="text-align:right;">' . number_format($qty_po, 2) . '</td>
@@ -189,7 +183,7 @@ class Report_outstanding_po extends CI_Controller
 
             if ($filter_display == "DETAIL") {
                 $html .= '  <tr>
-                                <td colspan="20" style="background:#D1FFC6;"><b>DETAIL OF ' . $record['po_no'] . ' | ' . $record['item_rm_number'] . '</b></td>
+                                <td colspan="17" style="background:#D1FFC6;"><b>DETAIL OF ' . $record['po_no'] . ' | ' . $record['item_rm_number'] . '</b></td>
                             </tr>
                             <tr>
                                 <th width="20"></th>
@@ -199,9 +193,9 @@ class Report_outstanding_po extends CI_Controller
                                 <th>Created By</th>
                                 <th>Trans Date</th>
                                 <th>Supplier ID</th>
-                                <th colspan="2">Supplier Name</th>
-                                <th colspan="2">PO No</th>
-                                <th colspan="2">Invoice No</th>
+                                <th>Supplier Name</th>
+                                <th>PO No</th>
+                                <th>Invoice No</th>
                                 <th>Begin</th>
                                 <th>Qty PO</th>
                                 <th>Qty Receipt</th>
@@ -270,9 +264,9 @@ class Report_outstanding_po extends CI_Controller
                                         <td>' . $purchase->created_name . '</td>
                                         <td>' . $purchase->po_date . '</td>
                                         <td>' . $purchase->supplier_id . '</td>
-                                        <td colspan="2">' . $purchase->supplier_name . '</td>
-                                        <td colspan="2">' . $purchase->po_no . '</td>
-                                        <td colspan="2">' . $purchase->request_no . '</td>
+                                        <td>' . $purchase->supplier_name . '</td>
+                                        <td>' . $purchase->po_no . '</td>
+                                        <td>' . $purchase->request_no . '</td>
                                         <td style="text-align:right;">' . number_format($begin, 2) . '</td>
                                         <td style="text-align:right;">' . number_format($qty) . '</td>
                                         <td style="text-align:right;">' . number_format(0)  . '</td>
@@ -306,9 +300,9 @@ class Report_outstanding_po extends CI_Controller
                                         <td>' . $receipt->created_name . '</td>
                                         <td>' . $receipt->receipt_date . '</td>
                                         <td>' . $receipt->supplier_id . '</td>
-                                        <td colspan="2">' . $receipt->supplier_name . '</td>
-                                        <td colspan="2">' . $receipt->receipt_no . '</td>
-                                        <td colspan="2">' . $receipt->bc_document . '</td>
+                                        <td>' . $receipt->supplier_name . '</td>
+                                        <td>' . $receipt->receipt_no . '</td>
+                                        <td>' . $receipt->bc_document . '</td>
                                         <td style="text-align:right;">' . number_format($begin, 2) . '</td>
                                         <td style="text-align:right;">' . number_format(0) . '</td>
                                         <td style="text-align:right;">' . number_format($qty_receipt, 2)  . '</td>

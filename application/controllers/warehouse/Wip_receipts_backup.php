@@ -1,7 +1,7 @@
 <?php
 date_default_timezone_set("Asia/Bangkok");
 defined('BASEPATH') or exit('No direct script access allowed');
-class Wip_receipts_backup extends CI_Controller
+class Wip_receipts extends CI_Controller
 {
     public function __construct()
     {
@@ -38,8 +38,7 @@ class Wip_receipts_backup extends CI_Controller
         echo json_encode($send);
     }
 
-    public function readChecksheet()
-    {
+    public function readChecksheet(){
         $send = $this->crud->query("SELECT a.checksheet_number, c.number_customer, b.name as customer_name
             FROM wip_receipts a 
             JOIN customers b ON a.customer_id = b.id
@@ -86,27 +85,27 @@ class Wip_receipts_backup extends CI_Controller
         $sql_menu = $this->db->query("SELECT * FROM menus_no WHERE menus_id = '$id_menu' and `status` = '0' and `start_date` <= '$datenow' and end_date >= '$datenow'");
         $row_menu = $sql_menu->row();
 
-        if (@$row_menu->number == "") {
+        if(@$row_menu->number == ""){
             //
-        } else {
+        }else{
             $number = @$row_menu->number;
             $yearnow = date("y", strtotime($row_menu->start_date));
             $yearend = date("y", strtotime($row_menu->end_date));
 
-            $whereDate = $number . $yearnow . $yearend . "1";
+            $whereDate = $number.$yearnow.$yearend."1";
 
-            $sqlGetID    = $this->db->query("SELECT max(checksheet_number) as kode FROM wip_receipts WHERE checksheet_number like '%$whereDate%'");
+            $sqlGetID	= $this->db->query("SELECT max(checksheet_number) as kode FROM wip_receipts WHERE checksheet_number like '%$whereDate%'");
             $rowID = $sqlGetID->row();
             $kode = $rowID->kode;
-
+            
             if ($kode == NULL) {
-                $autoID = sprintf("%0" . $row_menu->sequence . "s", $kode + 1);
-                $autoNo = $whereDate . $autoID;
+                $autoID = sprintf("%0".$row_menu->sequence."s", $kode + 1);
+                $autoNo = $whereDate.$autoID;
             } else {
                 $urutan = (int) substr($kode, -6);
                 $urutan++;
-                $autoID    = sprintf("%0" . $row_menu->sequence . "s", $urutan);
-                $autoNo = $whereDate . $autoID;
+                $autoID	= sprintf("%0".$row_menu->sequence."s", $urutan);
+                $autoNo = $whereDate.$autoID;
             }
 
             echo $autoNo;
@@ -163,7 +162,7 @@ class Wip_receipts_backup extends CI_Controller
         foreach ($records as $record) {
             $assy_number = $record['number_customer'];
             $mpp = $record['period'];
-            $wp = sprintf("%02s", $record['wp']) . "/" . substr($mpp, -2);
+            $wp = sprintf("%02s", $record['wp'])."/".substr($mpp, -2);
 
             $sqlQty = $this->dummy->query("SELECT assy_number, mpp, wp, customer, COUNT(qty) as qty 
                 from mst_scan_proses 
@@ -171,7 +170,7 @@ class Wip_receipts_backup extends CI_Controller
                 GROUP BY assy_number, mpp, wp, customer");
             $rowQty = $sqlQty->row();
 
-            if (!empty($rowQty)) {
+            if(!empty($rowQty)){
                 $arr[] = array(
                     "workorder" => $record['workorder'],
                     "period" => $record['period'],
@@ -184,9 +183,9 @@ class Wip_receipts_backup extends CI_Controller
             }
         }
 
-        if (empty($arr)) {
+        if(empty($arr)){
             show_error("Data Not Found");
-        } else {
+        }else{
             echo json_encode($arr);
         }
     }
@@ -436,7 +435,7 @@ class Wip_receipts_backup extends CI_Controller
 
         $checksheet_number = base64_decode($checksheet_number);
         //Cek Label
-        $this->db->select('d.number, d.name, d.number_customer, d.alias, a.qty, a.checksheet_label, f.trans_date, i.id as customer_number, i.name as customer_name'); //d.description,
+        $this->db->select('d.number, d.name, d.number_customer, d.alias, a.qty, a.checksheet_label, f.trans_date, i.id as customer_number, i.name as customer_name');//d.description,
         $this->db->from('wip_receipt_boxs a');
         $this->db->join('production_schedules c', 'a.workorder = c.workorder');
         $this->db->join('item_fg d', 'c.item_fg_id = d.id');
@@ -738,16 +737,16 @@ class Wip_receipts_backup extends CI_Controller
                                 <th style="text-align:center;">WP</th>
                                 <th style="text-align:center;">Qty</th>
                             </tr>';
-        foreach ($checksheets as $checksheet) {
-            $period = date("Ym", strtotime($checksheet['trans_date']));
-            $html .= '  <tr>
-                                                <td>' . $checksheet['workorder'] . '</td>
-                                                <td>' . $period . '</td>
-                                                <td>' . sprintf("%02s", $checksheet['wp']) . '/' . substr($period, -2) . '</td>
-                                                <td>' . $checksheet['qty'] . '</td>
+                            foreach ($checksheets as $checksheet) {
+                                $period = date("Ym", strtotime($checksheet['trans_date']));
+                                $html .= '  <tr>
+                                                <td>'.$checksheet['workorder'].'</td>
+                                                <td>'.$period.'</td>
+                                                <td>'.sprintf("%02s", $checksheet['wp']).'/'.substr($period, -2).'</td>
+                                                <td>'.$checksheet['qty'].'</td>
                                             </tr>';
-        }
-        $html .= '  </table>
+                            }
+            $html .= '  </table>
                     </div>
                     <div style="float:left; width:20%; text-align:center;">
                         <img src="' . base_url('assets/image/qrcode/' . $checksheetData . '.png') . '" width="150"/>
@@ -866,111 +865,5 @@ class Wip_receipts_backup extends CI_Controller
         }
         $html .= '</table></body></html>';
         echo $html;
-    }
-
-    public function checkBomNotCreate()
-    {
-        $sql = $this->db->query("SELECT * FROM wip_receipts WHERE checksheet_number NOT IN (SELECT DISTINCT checksheet_number FROM wip_receipt_balance) limit 10");
-        // $sql = $this->db->query("SELECT * FROM wip_receipts WHERE checksheet_number = 'RFG-252610000058'");
-        $datas = $sql->result_array();
-
-        $this->db->trans_start();
-        foreach ($datas as $data) {
-            $item_fg_id = $data['item_fg_id'];
-
-            $sqlBom = $this->db->query("SELECT a.*, b.uom FROM bom a JOIN item_rm b ON a.item_rm_id = b.id WHERE a.item_fg_id = '$item_fg_id'");
-            $dataBoms = $sqlBom->result_array();
-
-            $arr = array();
-            $no = 1;
-            foreach ($dataBoms as $dataBom) {
-                $arr = array(
-                    "checksheet_number" => $data['checksheet_number'],
-                    "customer_id" => $data['customer_id'],
-                    "item_fg_id" => $data['item_fg_id'],
-                    "item_rm_id" => $dataBom['item_rm_id'],
-                    "workorder" => $data['workorder'],
-                    "wp" => $data['wp'],
-                    "uom" => $dataBom['uom'],
-                    "qpa" => $dataBom['composition'],
-                    "rfg" => $data['qty'],
-                    "consumed" => round($data['qty'] * $dataBom['composition'], 2)
-                );
-
-                $read = $this->crud->reads("wip_receipt_balance", [], ["checksheet_number" => $data['checksheet_number'], "item_rm_id" => $dataBom['item_rm_id']]);
-
-                if (count($read) > 0) {
-                    echo json_encode(array("title" => "Error", "message" => "Duplicate Checksheet Number, Please try again", "theme" => "error"));
-                } else {
-                    $this->db->insert("wip_receipt_balance", $arr);
-                    echo $no . "_" . $data['checksheet_number'] . "_" . $data['item_fg_id'] . "_" . $dataBom['item_rm_id'] . "_" . $data['qty'] . "_" . $dataBom['composition'] . "_" . round($data['qty'] * $dataBom['composition'], 2) . "<br>";
-                }
-                $no++;
-            }
-
-            echo "<br><br><br>";
-        }
-
-        $this->db->trans_complete();
-        if ($this->db->trans_status() === FALSE) {
-            // Sesuatu gagal, data otomatis di-rollback
-            echo "Transaksi Gagal!";
-        } else {
-            // Semua berhasil, data sudah di-commit
-            echo "Transaksi Berhasil!";
-        }
-    }
-
-    public function checkWorkorderFail()
-    {
-        $sql = $this->db->query("SELECT * FROM wip_receipts WHERE checksheet_number = 'RFG-262710002559'");
-        // $sql = $this->db->query("SELECT * FROM wip_receipts WHERE checksheet_number = 'RFG-252610000058'");
-        $datas = $sql->result_array();
-
-        $this->db->trans_start();
-        foreach ($datas as $data) {
-            $item_fg_id = $data['item_fg_id'];
-
-            $sqlBom = $this->db->query("SELECT a.*, b.uom FROM bom a JOIN item_rm b ON a.item_rm_id = b.id WHERE a.item_fg_id = '$item_fg_id'");
-            $dataBoms = $sqlBom->result_array();
-
-            $arr = array();
-            $no = 1;
-            foreach ($dataBoms as $dataBom) {
-                $arr = array(
-                    "checksheet_number" => $data['checksheet_number'],
-                    "customer_id" => $data['customer_id'],
-                    "item_fg_id" => $data['item_fg_id'],
-                    "item_rm_id" => $dataBom['item_rm_id'],
-                    "workorder" => $data['workorder'],
-                    "wp" => $data['wp'],
-                    "uom" => $dataBom['uom'],
-                    "qpa" => $dataBom['composition'],
-                    "rfg" => $data['qty'],
-                    "consumed" => round($data['qty'] * $dataBom['composition'], 2)
-                );
-
-                $read = $this->crud->reads("wip_receipt_balance", [], ["checksheet_number" => $data['checksheet_number'], "item_rm_id" => $dataBom['item_rm_id']]);
-
-                if (count($read) > 0) {
-                    echo json_encode(array("title" => "Error", "message" => "Duplicate Checksheet Number, Please try again", "theme" => "error"));
-                } else {
-                    $this->db->insert("wip_receipt_balance", $arr);
-                    echo $no . "_" . $data['checksheet_number'] . "_" . $data['item_fg_id'] . "_" . $dataBom['item_rm_id'] . "_" . $data['qty'] . "_" . $dataBom['composition'] . "_" . round($data['qty'] * $dataBom['composition'], 2) . "<br>";
-                }
-                $no++;
-            }
-
-            echo "<br><br><br>";
-        }
-
-        $this->db->trans_complete();
-        if ($this->db->trans_status() === FALSE) {
-            // Sesuatu gagal, data otomatis di-rollback
-            echo "Transaksi Gagal!";
-        } else {
-            // Semua berhasil, data sudah di-commit
-            echo "Transaksi Berhasil!";
-        }
     }
 }

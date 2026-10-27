@@ -69,27 +69,27 @@ class Scraps extends CI_Controller
         $sql_menu = $this->db->query("SELECT * FROM menus_no WHERE menus_id = '$id_menu' and `status` = '0' and `start_date` <= '$datenow' and end_date >= '$datenow'");
         $row_menu = $sql_menu->row();
 
-        if (@$row_menu->number == "") {
+        if(@$row_menu->number == ""){
             //
-        } else {
+        }else{
             $number = @$row_menu->number;
             $yearnow = date("y", strtotime($row_menu->start_date));
             $yearend = date("y", strtotime($row_menu->end_date));
 
-            $whereDate = $number . $yearnow . $yearend . "1";
+            $whereDate = $number.$yearnow.$yearend."1";
 
-            $sqlGetID    = $this->db->query("SELECT max(document) as kode FROM scraps WHERE document like '%$whereDate%'");
+            $sqlGetID	= $this->db->query("SELECT max(document) as kode FROM scraps WHERE document like '%$whereDate%'");
             $rowID = $sqlGetID->row();
             $kode = $rowID->kode;
-
+            
             if ($kode == NULL) {
-                $autoID = sprintf("%0" . $row_menu->sequence . "s", $kode + 1);
-                $autoNo = $whereDate . $autoID;
+                $autoID = sprintf("%0".$row_menu->sequence."s", $kode + 1);
+                $autoNo = $whereDate.$autoID;
             } else {
                 $urutan = (int) substr($kode, -6);
                 $urutan++;
-                $autoID    = sprintf("%0" . $row_menu->sequence . "s", $urutan);
-                $autoNo = $whereDate . $autoID;
+                $autoID	= sprintf("%0".$row_menu->sequence."s", $urutan);
+                $autoNo = $whereDate.$autoID;
             }
 
             echo $autoNo;
@@ -142,8 +142,7 @@ class Scraps extends CI_Controller
         }
     }
 
-    function datatablesTemp()
-    {
+    function datatablesTemp(){
         $workorder = $this->input->get('workorder');
         $filter_from = date("Y-m-d");
 
@@ -165,7 +164,6 @@ class Scraps extends CI_Controller
             GROUP BY a.id
             ORDER BY a.number) c", 'a.item_rm_id = c.id', 'left');
         $this->db->where('a.deleted', 0);
-        $this->db->where('a.status', 0);
         $this->db->where('a.document', $workorder);
         $totalRows = $this->db->count_all_results('', false);
         $records = $this->db->get()->result_object();
@@ -323,21 +321,25 @@ class Scraps extends CI_Controller
         $this->db->from('config');
         $config = $this->db->get()->row();
 
-        $this->db->select('a.*, b.number as item_rm_number, b.name as item_rm_name');
-        $this->db->from('scraps a');
-        $this->db->join('item_rm b', 'a.item_rm_id = b.id');
-        $this->db->where('a.deleted', 0);
-        if ($filter_from != "" or $filter_to != "") {
-            $this->db->where('a.trans_date >=', $filter_from);
-            $this->db->where('a.trans_date <=', $filter_to);
-        }
-        $this->db->like('a.document', $filter_document);
-        $this->db->like('b.item_family_id', $filter_family_id);
-        $this->db->like('a.source', $filter_source);
-        $this->db->like('a.status', $filter_status);
-        $this->db->like('b.id', $filter_item_rm_id);
-        $this->db->order_by('a.trans_date', 'DESC');
-        $records = $this->db->get()->result_array();
+        $records = $this->crud->query("SELECT
+            a.id,
+        	a.number, 
+            a.name, 
+            b.name as prodfam, 
+            a.uom, 
+        	f.begin_in,
+            g.begin_out,
+            COALESCE(d.qty_in, 0) as qty_in,
+            COALESCE(e.qty_out, 0) as qty_out
+        FROM item_rm a 
+        JOIN item_familys b ON a.item_family_id = b.id
+        LEFT JOIN (SELECT item_rm_id, COALESCE(SUM(qty), 0) as qty_in FROM scraps WHERE `type` = 'IN' AND document like '%$filter_document%' AND DATE_FORMAT(trans_date, '%Y-%m-%d') between '$filter_from' and '$filter_to' GROUP BY item_rm_id) d ON a.id = d.item_rm_id
+        LEFT JOIN (SELECT item_rm_id, COALESCE(SUM(qty), 0) as qty_out FROM scraps WHERE `type` = 'OUT' AND document like '%$filter_document%' AND DATE_FORMAT(trans_date, '%Y-%m-%d') between '$filter_from' and '$filter_to' GROUP BY item_rm_id) e ON a.id = e.item_rm_id
+        LEFT JOIN (SELECT item_rm_id, COALESCE(SUM(qty), 0) as begin_in FROM scraps WHERE `type` = 'IN' AND document like '%$filter_document%' AND DATE_FORMAT(trans_date, '%Y-%m-%d') < '$filter_from' GROUP BY item_rm_id) f ON a.id = f.item_rm_id
+        LEFT JOIN (SELECT item_rm_id, COALESCE(SUM(qty), 0) as begin_out FROM scraps WHERE `type` = 'OUT' AND document like '%$filter_document%' AND DATE_FORMAT(trans_date, '%Y-%m-%d') < '$filter_from' GROUP BY item_rm_id) g ON a.id = g.item_rm_id
+        WHERE b.number != 'FG' and a.item_family_id like '%$filter_family_id%' and a.id like '%$filter_item_rm_id%'
+        GROUP BY a.id
+        ORDER BY a.number");
 
         $html = '<html><head><title>Print Data</title></head><style>body {font-family: Arial, Helvetica, sans-serif;}#customers {border-collapse: collapse;width: 100%;font-size: 12px;}#customers td, #customers th {border: 1px solid #ddd;padding: 2px;}#customers tr:nth-child(even){background-color: #f2f2f2;}#customers tr:hover {background-color: #ddd;}#customers th {padding-top: 2px;padding-bottom: 2px;text-align: center;color: black;}</style><body>
             <center>
@@ -363,60 +365,89 @@ class Scraps extends CI_Controller
             
             <table id="customers" border="1">
                 <tr>
-                    <th rowspan="2" width="20">No</th>
-                    <th rowspan="2">Trans Date</th>
-                    <th rowspan="2">Document No</th>
-                    <th rowspan="2">Part No EBWS</th>
-                    <th rowspan="2">Part No Supplier</th>
-                    <th rowspan="2">Description</th>
-                    <th rowspan="2">Rejection No</th>
-                    <th rowspan="2">Rejection By</th>
-                    <th rowspan="2">Reject</th>
-                    <th rowspan="2">Accepted</th>
-                    <th rowspan="2">Uom</th>
-                    <th rowspan="2">Remarks</th>
-                    <th colspan="3">Approved</th>
-                    <th colspan="2">Created</th>
-                    <th colspan="2">Updated</th>
-                </tr>
-                <tr>
-                    <th>Status</th>
-                    <th>By</th>
-                    <th>Date</th>
-                    <th>By</th>
-                    <th>Date</th>
-                    <th>By</th>
-                    <th>Date</th>
+                    <th width="20">No</th>
+                    <th>Product No</th>
+                    <th>Product Name</th>
+                    <th>Product Family</th>
+                    <th>Uom</th>
+                    <th>Begin</th>
+                    <th>In</th>
+                    <th>Out</th>
+                    <th>Ending Stock</th>
                 </tr>';
         $no = 1;
         foreach ($records as $data) {
-            if ($data['approved_to'] == "") {
-                $status = "APPROVED";
-            } else {
-                $status = "CHECKING";
-            }
+            $item_rm_id = $data->id;
 
-            $html .= '  <tr>
+            $this->db->select('a.*, b.number as item_number, b.name as item_name');
+            $this->db->from('scraps a');
+            $this->db->join('item_rm b', 'a.item_rm_id = b.id');
+            $this->db->where('a.deleted', 0);
+            if ($filter_from != "" or $filter_to != "") {
+                $this->db->where('a.trans_date >=', $filter_from);
+                $this->db->where('a.trans_date <=', $filter_to);
+            }
+            $this->db->like('a.document', $filter_document);
+            $this->db->like('a.source', $filter_source);
+            $this->db->like('a.status', $filter_status);
+            $this->db->where('b.id', $item_rm_id);
+            $this->db->order_by('b.number', 'ASC');
+            $this->db->order_by('a.trans_date', 'ASC');
+            $details = $this->db->get()->result_object();
+
+            $html .= '<tr>
                             <td style="text-align:center">' . $no . '</td>
-                            <td>' . $data['trans_date'] . '</td>
-                            <td>' . $data['document'] . '</td>
-                            <td>' . $data['item_rm_id'] . '</td>
-                            <td>' . $data['item_rm_number'] . '</td>
-                            <td>' . $data['item_rm_name'] . '</td>
-                            <td>' . $data['workorder'] . '</td>
-                            <td>' . $data['source'] . '</td>
-                            <td>' . $data['ng'] . '</td>
-                            <td>' . $data['qty'] . '</td>
-                            <td>' . $data['uom'] . '</td>
-                            <td>' . $data['remarks'] . '</td>
-                            <td>' . $data['approved_to'] . '</td>
-                            <td>' . $data['approved_by'] . '</td>
-                            <td>' . $data['approved_date'] . '</td>
-                            <td>' . $data['created_by'] . '</td>
-                            <td>' . $data['created_date'] . '</td>
-                            <td>' . $data['updated_by'] . '</td>
-                            <td>' . $data['updated_date'] . '</td>
+                            <td>' . $data->number . '</td>
+                            <td>' . $data->name . '</td>
+                            <td>' . $data->prodfam . '</td>
+                            <td style="text-align:center">' . $data->uom . '</td>
+                            <td style="text-align:right">' . number_format($data->begin_in - $data->begin_out, 2) . '</td>
+                            <td style="text-align:right">' . number_format($data->qty_in, 2) . '</td>
+                            <td style="text-align:right">' . number_format($data->qty_out, 2) . '</td>
+                            <td style="text-align:right">' . number_format(($data->begin_in - $data->begin_out) + ($data->qty_in - $data->qty_out), 2) . '</td>
                         </tr>';
+            $html .= '  <tr>
+                            <td colspan="13" style="background:#D1FFC6;"><b>DETAIL OF ' . $data->number . ' - ' . $data->name . '</b></td>
+                        </tr>
+                        <tr>
+                            <th width="20">No</th>
+                            <th>Trans Date</th>
+                            <th>Document No</th>
+                            <th>Remarks</th>
+                            <th>Uom</th>
+                            <th>Begin</th>
+                            <th>In</th>
+                            <th>Out</th>
+                            <th>Balance</th>
+                        </tr>';
+            $begin = 0;
+            $balance = 0;
+            $noDetail = 1;
+            foreach ($details as $detail) {
+                if ($detail->type == "IN") {
+                    $in = $detail->qty;
+                    $out = 0;
+                    $balance = ($begin + $in - $out);
+                } else {
+                    $in = 0;
+                    $out = $detail->qty;
+                    $balance = ($begin + $in - $out);
+                }
+
+                $html .= '  <tr>
+                                <td style="text-align:center">' . $no . "." . $noDetail . '</td>
+                                <td>' . $detail->trans_date . '</td>
+                                <td>' . $detail->document . '</td>
+                                <td>' . $detail->remarks . '</td>
+                                <td style="text-align:center">' . $detail->uom . '</td>
+                                <td style="text-align:right;">' . number_format($begin, 2) . '</td>
+                                <td style="text-align:right;">' . number_format($in, 2) . '</td>
+                                <td style="text-align:right;">' . number_format($out, 2)  . '</td>
+                                <td style="text-align:right;">' . number_format($balance, 2)  . '</td>
+                            </tr>';
+                $begin = ($begin + $in - $out);
+                $noDetail++;
+            }
 
             $no++;
         }

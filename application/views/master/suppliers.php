@@ -38,10 +38,14 @@
             <th rowspan="2" data-options="field:'msmi',width:50,halign:'center'">MSMI</th>
             <!-- <th rowspan="2" data-options="field:'terms',width:100,halign:'center',formatter:btnTerms">Terms<br>Condition</th> -->
             <th rowspan="2" data-options="field:'status',width:80,align:'center', styler:cellStyler, formatter:cellFormatter">Status</th>
+            <th colspan="3" data-options="field:'',width:100,align:'center'">Approved</th>
             <th colspan="2" data-options="field:'',width:100,halign:'center'"> Created</th>
             <th colspan="2" data-options="field:'',width:100,halign:'center'"> Updated</th>
         </tr>
         <tr>
+            <th data-options="field:'approved_to',width:100,align:'center', styler:styleApproved, formatter:formatApproved"> Status</th>
+            <th data-options="field:'approved_by',width:100,align:'center'"> By</th>
+            <th data-options="field:'approved_date',width:150,align:'center'"> Date</th>
             <th data-options="field:'created_by',width:100,align:'center'"> By</th>
             <th data-options="field:'created_date',width:150,align:'center'"> Date</th>
             <th data-options="field:'updated_by',width:100,align:'center'"> By</th>
@@ -228,7 +232,7 @@
                 </center>
             </div>
         </fieldset>
-        
+
     </form>
 </div>
 
@@ -317,9 +321,10 @@
                     });
 
                     requestDelete(rows.length, rows);
+
                     function requestDelete(total, json, number = 1, value = 0) {
                         if (value < 100) {
-                            var row = json[number-1];
+                            var row = json[number - 1];
                             value = Math.floor((number / total) * 100);
 
                             $.ajax({
@@ -376,8 +381,8 @@
     }
 
     function btnTerms(val, row) {
-        var details = "terms('"+row.id+"')";
-        return '<a class="btn btn-primary w-100" style="pointer-events: visible; opacity:1;" onClick="'+details+'"><i class="fa fa-edit"></i> Edit</a>';
+        var details = "terms('" + row.id + "')";
+        return '<a class="btn btn-primary w-100" style="pointer-events: visible; opacity:1;" onClick="' + details + '"><i class="fa fa-edit"></i> Edit</a>';
     }
 
     function terms(supplier_id) {
@@ -389,7 +394,7 @@
             url: "<?= base_url('master/suppliers/read') ?>",
             data: "supplier_id=" + supplier_id,
             dataType: "json",
-            success: function (json) {
+            success: function(json) {
                 $(".summernote").summernote("code", json.terms);
             }
         });
@@ -452,9 +457,9 @@
                     $('#frm_insert').form('submit', {
                         url: url_save,
                         onSubmit: function() {
-                            if($(this).form('validate') === true){
+                            if ($(this).form('validate') === true) {
                                 $('#dlg_insert').dialog('close');
-                                
+
                                 Swal.fire({
                                     title: 'Please Wait...',
                                     showConfirmButton: false,
@@ -464,7 +469,7 @@
                                         Swal.showLoading();
                                     },
                                 });
-                            }else{
+                            } else {
                                 return $(this).form('validate');
                             }
                         },
@@ -503,6 +508,23 @@
         }
     };
 
+    //CELLSTYLE APPROVE
+    function styleApproved(value, row, index) {
+        if (value == "" || value === null) {
+            return 'background: #53D636; color:white;';
+        } else {
+            return 'background: #FF5F5F; color:white;';
+        }
+    }
+    //FORMATTER APPROVE
+    function formatApproved(value) {
+        if (value == "" || value === null) {
+            return 'Approved';
+        } else {
+            return 'Checking';
+        }
+    };
+
     $('#currency').combobox({
         url: '<?= base_url('master/currencies/reads'); ?>',
         valueField: 'name',
@@ -515,13 +537,13 @@
         valueField: 'name',
         textField: 'name',
         prompt: 'Choose Origin',
-        onSelect: function(origin){
+        onSelect: function(origin) {
             $('#state').combobox({
                 url: '<?= base_url('master/states/reads/'); ?>' + origin.id,
                 valueField: 'name',
                 textField: 'name',
                 prompt: 'Choose State',
-                
+
             });
         }
     });

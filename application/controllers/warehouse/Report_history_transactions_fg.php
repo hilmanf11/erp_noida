@@ -48,11 +48,10 @@ class Report_history_transactions_fg extends CI_Controller
         $this->db->from('config');
         $config = $this->db->get()->row();
 
-        function compare_trans_date($a, $b)
-        {
+        function compare_trans_date($a, $b) {
             return strtotime($a['created_date']) - strtotime($b['created_date']);
         }
-
+        
         $records = $this->crud->query("SELECT
             a.id,
             a.number,
@@ -89,7 +88,7 @@ class Report_history_transactions_fg extends CI_Controller
         WHERE a.id like '%$filter_items%'
         GROUP BY a.id
         ORDER BY a.number");
-
+        
         $html = '<html><head><title>Print Data</title></head><style>body {font-family: Arial, Helvetica, sans-serif;}#customers {border-collapse: collapse;width: 100%;font-size: 12px;}#customers td, #customers th {border: 1px solid #ddd;padding: 2px;}#customers tr:nth-child(even){background-color: #f2f2f2;}#customers tr:hover {background-color: #ddd;}#customers th {padding-top: 2px;padding-bottom: 2px;text-align: center;color: black;}</style><body>
             <center>
             <div style="float: left; font-size: 12px; text-align: left;">
@@ -100,7 +99,7 @@ class Report_history_transactions_fg extends CI_Controller
                         </td>
                         <td style="font-size: 14px; text-align: left; margin:2px;">
                             <b>' . $config->name . '</b><br>
-                            <small>' . $config->description . '</small>
+                            <small>'.$config->description.'</small>
                         </td>
                     </tr>
                 </table>
@@ -186,7 +185,7 @@ class Report_history_transactions_fg extends CI_Controller
                 $q_adj_in = $this->db->query("SELECT
                     'ADJUSTMENT IN' as trans_type,
                     a.created_by,
-                    a.created_date,
+                    a.trans_date as created_date,
                     a.document_no as document_no_1,
                     a.id as document_no_2,
                     a.qty as qty_in,
@@ -199,7 +198,7 @@ class Report_history_transactions_fg extends CI_Controller
                 $q_adj_out = $this->db->query("SELECT
                     'ADJUSTMENT OUT' as trans_type,
                     a.created_by,
-                    a.created_date,
+                    a.trans_date as created_date,
                     a.document_no as document_no_1,
                     a.id as document_no_2,
                     '0' as qty_in,

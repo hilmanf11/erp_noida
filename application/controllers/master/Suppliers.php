@@ -77,20 +77,21 @@ class Suppliers extends CI_Controller
         }
     }
     //AUTO ID
-    public function autoid(){
+    public function autoid()
+    {
         //AUTOID
         $sql = $this->db->query("SELECT max(SUBSTRING(id, 5)) as kode FROM suppliers");
         $row = $sql->row();
 
-        if(substr($row->kode, 3, 2) == 99){
+        if (substr($row->kode, 3, 2) == 99) {
             $kode1 = sprintf("%02s", substr($row->kode, 0, 2) + 1);
             $kode2 = "01";
-        }else{
+        } else {
             $kode1 = empty($row->kode) ? "01" : substr($row->kode, 0, 2);
             $kode2 = sprintf("%02s", substr($row->kode, 3, 2) + 1);
         }
 
-        $autoid = "SUP-" . $kode1 ."-". $kode2;
+        $autoid = "SUP-" . $kode1 . "-" . $kode2;
         echo json_encode(array("id" => $autoid));
     }
 
@@ -126,7 +127,7 @@ class Suppliers extends CI_Controller
     {
         if ($this->input->post()) {
             $post = $this->input->post();
-            $send = $this->crud->update('suppliers', ["id" => $post['supplier_id']], ["terms" => $post['terms']]);
+            $send = $this->db->update('suppliers', ["terms" => $post['terms']], ["id" => $post['supplier_id']]);
             echo $send;
         } else {
             show_error("Cannot Process your request");
@@ -221,22 +222,22 @@ class Suppliers extends CI_Controller
             $sql = $this->db->query("SELECT max(SUBSTRING(id, 5)) as kode FROM suppliers");
             $row = $sql->row();
 
-            if(substr($row->kode, 3, 2) == 99){
+            if (substr($row->kode, 3, 2) == 99) {
                 $kode1 = sprintf("%02s", substr($row->kode, 0, 2) + 1);
                 $kode2 = "01";
-            }else{
+            } else {
                 $kode1 = empty($row->kode) ? "01" : substr($row->kode, 0, 2);
                 $kode2 = sprintf("%02s", substr($row->kode, 3, 2) + 1);
             }
 
-            $autoid = "SUP-" . $kode1 ."-". $kode2;
+            $autoid = "SUP-" . $kode1 . "-" . $kode2;
 
             if (!empty($suppliers->number)) {
                 echo json_encode(array("title" => "Duplicated", "message" => " Supplier Code " . $data['number'] . " is Duplicate Data", "theme" => "error"));
-            } else if(!in_array($data['supplier_type'], array("RAW MATERIAL","CAPITAL GOODS","SERVICE","CONSUMABLE","OTHER"))){
+            } else if (!in_array($data['supplier_type'], array("RAW MATERIAL", "CAPITAL GOODS", "SERVICE", "CONSUMABLE", "OTHER"))) {
                 echo json_encode(array("title" => "Not Found", "message" => " Supplier Type " . $data['supplier_type'] . " is Not Found", "theme" => "error"));
-            // } else if(empty($tds->section)){
-            //     echo json_encode(array("title" => "Not Found", "message" => " TDS Section " . $data['tds'] . " is Not Found", "theme" => "error"));
+                // } else if(empty($tds->section)){
+                //     echo json_encode(array("title" => "Not Found", "message" => " TDS Section " . $data['tds'] . " is Not Found", "theme" => "error"));
             } else {
                 $dataFinal = array(
                     //field

@@ -21,7 +21,7 @@ class Purchase_invoices extends CI_Controller
         } elseif ($this->checkuserAccess($this->id_menu()) > 0) {
             $data['button'] = $this->getbutton($this->id_menu());
             $data['menus_id'] = $this->id_menu();
-
+            
             $this->load->view('template/header', $data);
             $this->load->view('finance/purchase_invoices');
         } else {
@@ -47,7 +47,7 @@ class Purchase_invoices extends CI_Controller
         $this->db->where('a.number', $number);
         $this->db->order_by('a.item_no', 'asc');
         $records = $this->db->get()->result_array();
-
+        
         $total_sub = 0;
         $total_igst = 0;
         $total_sgst = 0;
@@ -58,7 +58,7 @@ class Purchase_invoices extends CI_Controller
             $total_sgst += $record['sgst'];
             $total_cgst += $record['cgst'];
         }
-
+        
         $datas['rows'] = $records;
         $datas['total_sub'] = $total_sub;
         $datas['total_igst'] = $total_igst;
@@ -75,8 +75,7 @@ class Purchase_invoices extends CI_Controller
         die(json_encode($datas));
     }
 
-    public function readSupplierCoa()
-    {
+    public function readSupplierCoa(){
         $supplier_id = $this->input->post('supplier_id');
         $journals = $this->crud->query("SELECT b.account_number, b.account_name
             FROM account_balance_suppliers a 
@@ -123,7 +122,7 @@ class Purchase_invoices extends CI_Controller
     {
         $journals = json_decode(file_get_contents("json/purchase_invoice_journals.json"), true);
         $jsonDatas = json_decode(file_get_contents("json/purchase_invoices.json"), true);
-
+        
         if (count($journals) > 0) {
             $flag = 1;
             $mergedData = array();
@@ -196,7 +195,7 @@ class Purchase_invoices extends CI_Controller
                 }
             }
 
-            usort($array2, function ($a, $b) {
+            usort($array2, function($a, $b) {
                 return $a['flag'] <=> $b['flag']; // ascending
             });
         }
@@ -220,7 +219,7 @@ class Purchase_invoices extends CI_Controller
             $dp = "and d.total_dp > 0";
         }
 
-        if ($type == "purchase") {
+        if($type == "purchase"){
             $records = $this->crud->query("SELECT a.receipt_no, a.receipt_id, a.taxes, a.total_dp, a.bc_document, a.awb_no, a.journal_type_id, a.journal_type_name, SUM(a.qty_label) AS qty_label, SUM(a.total_label) AS total_label FROM (
                 SELECT a.receipt_no, a.receipt_id, d.taxes, d.total_dp, a.bc_document, a.awb_no, f.journal_type_id, f.journal_type_name, a.qty_label, a.total_label
                 FROM (SELECT a.*, b.total_label
@@ -235,7 +234,7 @@ class Purchase_invoices extends CI_Controller
                 ORDER BY a.created_date DESC) a
                 GROUP BY a.receipt_no
                 HAVING SUM(a.qty_label) = SUM(a.total_label)");
-        } else if ($type == "other") {
+        }else if($type == "other"){
             $records = $this->crud->query("SELECT a.receipt_no, d.taxes, d.total_dp, a.bc_document, a.awb_no, (CASE WHEN e.journal_type_id is null THEN f.journal_type_id ELSE e.journal_type_id END) as journal_type_id, f.journal_type_name
                 FROM purchase_order_receipt_others a
                 JOIN item_rm b ON a.item_rm_id = b.id
@@ -246,14 +245,14 @@ class Purchase_invoices extends CI_Controller
                 WHERE a.supplier_id = '$supplier_id' and a.status = '0' and a.store = '1' $dp
                 GROUP BY a.receipt_no 
                 ORDER BY a.created_date desc");
-        } else {
+        }else{
             $records = $this->crud->query("SELECT po_no as receipt_no, taxes, total_dp
                 FROM purchase_order_services
                 WHERE supplier_id = '$supplier_id' and `status` = '0'
                 GROUP BY po_no 
                 ORDER BY po_no desc");
         }
-
+        
         echo json_encode($records);
     }
 
@@ -304,27 +303,27 @@ class Purchase_invoices extends CI_Controller
         $sql_menu = $this->db->query("SELECT * FROM menus_no WHERE menus_id = '$id_menu' and `status` = '0' and `start_date` <= '$datenow' and end_date >= '$datenow'");
         $row_menu = $sql_menu->row();
 
-        if (@$row_menu->number == "") {
+        if(@$row_menu->number == ""){
             //
-        } else {
+        }else{
             $number = @$row_menu->number;
             $yearnow = date("y", strtotime($row_menu->start_date));
             $yearend = date("y", strtotime($row_menu->end_date));
 
-            $whereDate = $number . $yearnow . $yearend . "1";
+            $whereDate = $number.$yearnow.$yearend."1";
 
-            $sqlGetID    = $this->db->query("SELECT max(`number`) as kode FROM purchase_invoices WHERE `number` like '%$whereDate%'");
+            $sqlGetID	= $this->db->query("SELECT max(`number`) as kode FROM purchase_invoices WHERE `number` like '%$whereDate%'");
             $rowID = $sqlGetID->row();
             $kode = $rowID->kode;
-
+            
             if ($kode == NULL) {
-                $autoID = sprintf("%0" . $row_menu->sequence . "s", $kode + 1);
-                $autoNo = $whereDate . $autoID;
+                $autoID = sprintf("%0".$row_menu->sequence."s", $kode + 1);
+                $autoNo = $whereDate.$autoID;
             } else {
                 $urutan = (int) substr($kode, -6);
                 $urutan++;
-                $autoID    = sprintf("%0" . $row_menu->sequence . "s", $urutan);
-                $autoNo = $whereDate . $autoID;
+                $autoID	= sprintf("%0".$row_menu->sequence."s", $urutan);
+                $autoNo = $whereDate.$autoID;
             }
 
             echo $autoNo;
@@ -353,7 +352,7 @@ class Purchase_invoices extends CI_Controller
         $this->db->from('config');
         $config = $this->db->get()->row();
 
-        if ($type == "purchase") {
+        if($type == "purchase"){
             $this->db->select("a.receipt_no as por_no, a.po_no, '' as asset_code, c.id as item_rm_id, c.number as item_rm_number, c.name as item_rm_name, c.uom, c.hsn_code, b.currency, 
                 a.qty_receipt as qty, f.price, f.discount, 'INR' as currency_local, h.account_number, i.account_name, h.id  as item_family_id, h.name as item_family_name,
                 b.tds, b.state, k.individual, b.type as supplier_type,
@@ -378,7 +377,7 @@ class Purchase_invoices extends CI_Controller
             $this->db->group_by('a.id');
             $this->db->order_by('a.receipt_no', 'asc');
             $records = $this->db->get()->result_array();
-        } elseif ($type == "others") {
+        }elseif($type == "others"){
             $this->db->select("a.receipt_no as por_no, a.po_no, a.asset_code, c.id as item_rm_id, c.number as item_rm_number, c.name as item_rm_name, c.uom, c.hsn_code, b.currency, 
                 a.qty_receipt as qty, f.price, f.discount, 'INR' as currency_local, 
                 (CASE WHEN l.account_number is null THEN h.account_number ELSE l.account_number END) as account_number, 
@@ -408,7 +407,7 @@ class Purchase_invoices extends CI_Controller
             $this->db->group_by('a.id');
             $this->db->order_by('a.receipt_no', 'asc');
             $records = $this->db->get()->result_array();
-        } else {
+        }else{
             $this->db->select("a.po_no as por_no, a.po_no, '-' as asset_code, 'null' as item_rm_id, a.item_name as item_rm_number, a.item_name as item_rm_name, 'Pcs' as uom, a.hsn_code, b.currency, 
                 a.qty, a.price, a.discount, 'INR' as currency_local, '' as account_number, '' as account_name, '' as item_family_id, '' as item_family_name,
                 b.tds, b.state, k.individual, b.type as supplier_type,
@@ -444,8 +443,8 @@ class Purchase_invoices extends CI_Controller
         foreach ($records as $record) {
             $total_sub += $record['total'];
             $total_qty += $record['qty'];
-
-            if ($record['state'] == $config->state) {
+            
+            if($record['state'] == $config->state){
                 $igst = 0;
                 $cgst = $record['cgst'];
                 $sgst = $record['sgst'];
@@ -454,7 +453,7 @@ class Purchase_invoices extends CI_Controller
                 $total_igst += 0;
                 $total_cgst += $record['cgst'];
                 $total_sgst += $record['sgst'];
-            } else if ($record['supplier_type'] == "LOCAL") {
+            }else if($record['supplier_type'] == "LOCAL"){
                 $igst = $record['igst'];
                 $cgst = 0;
                 $sgst = 0;
@@ -463,7 +462,7 @@ class Purchase_invoices extends CI_Controller
                 $total_igst += $record['igst'];
                 $total_cgst += 0;
                 $total_sgst += 0;
-            } else {
+            }else {
                 $igst = 0;
                 $cgst = 0;
                 $sgst = 0;
@@ -522,7 +521,7 @@ class Purchase_invoices extends CI_Controller
             "rate" => $rate,
             "total2" => $total_sub2,
             "total_local" => $total_sub3,
-        ]);
+        ]); 
 
         $arr['rows'] = $obj;
         $arr['total_sub'] = round($total_sub, 2);
@@ -635,10 +634,10 @@ class Purchase_invoices extends CI_Controller
                     if ($send) {
                         if ($purchase_invoice['por_no'] != "-") {
                             if ($purchase_invoice['type'] != "dp") {
-                                if ($purchase_invoice['type'] == "purchase") {
+                                if($purchase_invoice['type'] == "purchase"){
                                     $this->db->update('purchase_order_receipts', ["status" => 1], ["receipt_no" => $purchase_invoice['por_no'], "po_no" => $purchase_invoice['po_no'], "item_rm_id" => $purchase_invoice['item_rm_id'], "supplier_id" => $purchase_invoice['supplier_id']]);
-                                } else {
-                                    if (@$purchase_invoice['asset_code'] != "" && @$purchase_invoice['asset_code'] != "-") {
+                                }else{                                    
+                                    if(@$purchase_invoice['asset_code'] != "" && @$purchase_invoice['asset_code'] != "-"){
                                         $asset_code = $purchase_invoice['asset_code'];
 
                                         $item_rm = $this->crud->read("item_rm", [], ["id" => $purchase_invoice['item_rm_id']]);
@@ -647,21 +646,21 @@ class Purchase_invoices extends CI_Controller
                                         $asset_fixeds = $this->crud->read('asset_fixeds', [], ["number" => $asset_code]);
                                         $asset = $this->crud->read('assets', [], ["number" => $asset_code]);
 
-                                        if (isset($dataAssets[$asset_code])) {
-                                            $amount += ($purchase_invoice['total'] * $purchase_invoice['rate']);
+                                        if (isset($dataAsset[$asset_code])) {
+                                            $amount += $purchase_invoice['total'];
                                         } else {
-                                            $amount = ($purchase_invoice['total'] * $purchase_invoice['rate']);
+                                            $amount = $purchase_invoice['total'];
                                         }
 
-                                        if (@$item_family->usefull > 0) {
+                                        if(@$item_family->usefull > 0){
                                             $estimate_year = $item_family->usefull;
-                                        } else {
+                                        }else{
                                             $estimate_year = 1;
                                         }
-
+                                        
                                         $depreciation = ($amount / ($estimate_year * 12));
 
-                                        if (empty($asset_fixeds)) {
+                                        if(empty($asset_fixeds)){
                                             $dataAssets[$asset_code] = array(
                                                 "item_family_id" => @$item_family->id,
                                                 "purchase_invoice_no" => $purchase_invoice['number'],
@@ -671,7 +670,7 @@ class Purchase_invoices extends CI_Controller
                                                 "number" => $asset_code,
                                                 "name" => @$asset->name,
                                                 "shift" => @$item_family->shift,
-                                                "trans_date" => $purchase_invoice['invoice_date'],
+                                                "trans_date" => $purchase_invoice['trans_date'],
                                                 "uom" => $asset->uom,
                                                 "qty" => $asset->qty,
                                                 "currency" => @$supplier->currency,
@@ -685,7 +684,6 @@ class Purchase_invoices extends CI_Controller
                                                 "account_number" => $purchase_invoice['account_number'],
                                                 "total" => $amount,
                                                 "posting_date" => $purchase_invoice['trans_date'],
-                                                "capitalization_date" => $purchase_invoice['trans_date'],
                                             );
                                         }
                                     }
@@ -699,7 +697,7 @@ class Purchase_invoices extends CI_Controller
                     }
                 }
             }
-
+            
             foreach ($dataAssets as $code => $value) {
                 $this->crud->create('asset_fixeds', $value);
             }
@@ -957,11 +955,6 @@ class Purchase_invoices extends CI_Controller
             }
         }
 
-        $checkPi = $this->crud->read("journal_postings", [], ["document_no" => "$number"]);
-        if (!empty($checkPi)) {
-            die(json_encode(array("title" => "Duplicate", "message" => "Invoice No " . $number . " already posting journal", "theme" => "error")));
-        }
-
         if ($voucher_no == "") {
             die(json_encode(array("title" => "Configuration", "message" => "Please Check Configuration in Serial No (Journal Posting) First", "theme" => "error")));
         }
@@ -1046,7 +1039,7 @@ class Purchase_invoices extends CI_Controller
         //Generate QRcode
         $this->createQrcode(@$invoice_no, "assets/image/qrcode/");
 
-        if ($tb == "") {
+        if($tb == ""){
             $media = "  @media screen {
                             .print {
                                 display: none !important;
@@ -1067,12 +1060,12 @@ class Purchase_invoices extends CI_Controller
                             </center>
                         </div>';
             $script = "<script>window.print()</script>";
-        } else {
+        }else{
             $media = "";
             $noprint = "";
             $script = "";
         }
-
+        
         $html = '<html>
                     <head>
                         <title>' . $invoice_no . '</title>
@@ -1094,10 +1087,10 @@ class Purchase_invoices extends CI_Controller
                             padding-bottom: 2px;
                             text-align: center;color: black;
                         }
-                        ' . $media . '
+                        '.$media.'
                     </style>
                     <body>
-                    ' . $noprint . '
+                    '.$noprint.'
                     <div class="print">';
         $no = 1;
         $hal = 1;
@@ -1193,7 +1186,7 @@ class Purchase_invoices extends CI_Controller
                                         </tr>
                                     </table>
                                 </div>
-                                <div style="width:100%; text-align: right; font-size:12px;">Page ' . $hal . '/' . $page . '</div>
+                                <div style="width:100%; text-align: right; font-size:12px;">Page '.$hal.'/'.$page.'</div>
                                 <table id="customers">
                                     <tr>
                                         <th rowspan="2">No</th>
@@ -1222,11 +1215,11 @@ class Purchase_invoices extends CI_Controller
             $grand_total_local = 0;
             foreach ($records as $record) {
                 $amount = ($record['total_idr']);
-                if ($record['account_type'] == "DEBIT") {
+                if($record['account_type'] == "DEBIT"){
                     $grand_total += $record['total2'];
                     $grand_total_all += $record['total'];
                     $grand_total_local += $amount;
-                } else {
+                }else{
                     $grand_total -= $record['total2'];
                     $grand_total_all -= $record['total'];
                     $grand_total_local -= $amount;
@@ -1266,10 +1259,10 @@ class Purchase_invoices extends CI_Controller
 
             $html .= '  <tr>
                             <th colspan="13" style="text-align:right">TOTAL</th>
-                            <th style="text-align:right">' . number_format($grand_total, 2) . '</th>
+                            <th style="text-align:right">'.number_format($grand_total, 2).'</th>
                             <th></th>
                             <th></th>
-                            <th style="text-align:right">' . number_format($grand_total_local, 2) . '</th>
+                            <th style="text-align:right">'.number_format($grand_total_local, 2).'</th>
                         </tr>
                     </table>
                 </div>';
@@ -1277,7 +1270,7 @@ class Purchase_invoices extends CI_Controller
             if (($i + 1) != $page) {
                 $html .= '<div style="page-break-after:always;"></div>';
             }
-
+            
             $hal++;
         }
 
@@ -1296,21 +1289,21 @@ class Purchase_invoices extends CI_Controller
                                 <td style="font-weight:bold;">Debit</td>
                                 <td style="font-weight:bold;">Credit</td>
                             </tr>';
-        $total_debit = 0;
-        $total_credit = 0;
-        foreach ($journals as $journal) {
-            $total_debit += $journal->debit;
-            $total_credit += $journal->credit;
+            $total_debit = 0;
+            $total_credit = 0;
+            foreach ($journals as $journal) {
+                $total_debit += $journal->debit;
+                $total_credit += $journal->credit;
 
-            $html .= '  <tr>
+                $html .= '  <tr>
                                 <td style="mso-number-format:\@;">' . $journal->account_number . '</td>
                                 <td>' . $journal->account_name . '</td>
                                 <td style="text-align:right;">' . number_format($journal->debit, 2) . '</td>
                                 <td style="text-align:right;">' . number_format($journal->credit, 2) . '</td>
                             </tr>';
-        }
+            }
 
-        $html .= '      <tr>
+            $html .= '      <tr>
                                 <td colspan="2">Balance</td>
                                 <td style="text-align:right;">' . @number_format($total_debit, 2) . '</td>
                                 <td style="text-align:right;">' . @number_format($total_credit, 2) . '</td>
@@ -1339,7 +1332,7 @@ class Purchase_invoices extends CI_Controller
                                 <td style="font-weight:bold; text-align:right;">' . @number_format(@$total_cgst, 2) . '</td>
                             </tr>
                             <tr>
-                                <td style="font-weight:bold;">TDS (' . @$records[0]['tds'] . ')</td>
+                                <td style="font-weight:bold;">TDS ('.@$records[0]['tds'].')</td>
                                 <td style="font-weight:bold; text-align:right;">' . @number_format(@$records[0]['total_tds'], 2) . '</td>
                             </tr>
                             <tr>
@@ -1374,7 +1367,7 @@ class Purchase_invoices extends CI_Controller
                         <th style="height:20px; text-align:center;"><br><hr style="width:60%;margin-left:20%;">Director</th>
                     </tr>
                 </table><br>';
-        $html .= "</div></div>" . $script . "</body>";
+        $html .= "</div></div>".$script."</body>";
         die($html);
     }
 
@@ -1632,7 +1625,7 @@ class Purchase_invoices extends CI_Controller
             <br><br>
             <center>
                 <h2>PURCHASE INVOICE DETAIL REPORT</h2>
-                <small>PERIOD : ' . $periode . '</small>
+                <small>PERIOD : '.$periode.'</small>
             </center>
             <br><br>
             <table id="customers" border="1">
@@ -1671,21 +1664,21 @@ class Purchase_invoices extends CI_Controller
                 </tr>';
         $no = 1;
         foreach ($records as $data) {
-            if ($data['igst'] > 0) {
+            if($data['igst'] > 0){
                 $igst_rate = $data['igst_rate'];
-            } else {
+            }else{
                 $igst_rate = 0;
             }
 
-            if ($data['sgst'] > 0) {
+            if($data['sgst'] > 0){
                 $sgst_rate = $data['sgst_rate'];
-            } else {
+            }else{
                 $sgst_rate = 0;
             }
 
-            if ($data['cgst'] > 0) {
+            if($data['cgst'] > 0){
                 $cgst_rate = $data['cgst_rate'];
-            } else {
+            }else{
                 $cgst_rate = 0;
             }
 

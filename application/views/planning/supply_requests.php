@@ -2,7 +2,6 @@
     <thead>
         <tr>
             <th rowspan="2" field="ck" checkbox="true"></th>
-            <th rowspan="2" data-options="field:'wms',width:120,align:'center',formatter:BtnWms">WMS</th>
             <th rowspan="2" data-options="field:'request_no',halign:'center',width:190">Kanban No</th>
             <th rowspan="2" data-options="field:'request_date',width:120,halign:'center'">Request Date</th>
             <th rowspan="2" data-options="field:'request_name',width:120,halign:'center'">Request Name</th>
@@ -79,7 +78,7 @@
             <div style="width: 50%; float: left;">
                 <div class="fitem">
                     <span style="width:35%; display:inline-block;">Request Date</span>
-                    <input style="width:60%;" name="request_date" id="request_date" value="<?= date("Y-m-d") ?>" readonly class="easyui-datebox" data-options="formatter:myformatter,parser:myparser, editable:false">
+                    <input style="width:60%;" name="request_date" id="request_date" value="<?= date("Y-m-d") ?>" required="" class="easyui-datebox" data-options="formatter:myformatter,parser:myparser, editable:false">
                 </div>
                 <div class="fitem">
                     <span style="width:35%; display:inline-block;">Request No</span>
@@ -756,68 +755,5 @@
         } else {
             return 'background: #FF5F5F; color:white;';
         }
-    }
-
-    function BtnWms(val, row) {
-        if (row.state == "closed") {
-            if (row.request_date >= "2026-07-02") {
-                var onClick = "sendWms('" + row.request_no + "')";
-                return '<a class="btn btn-primary w-100" style="pointer-events: visible; opacity:1;" target="_blank" onClick="' + onClick + '"><i class="fa fa-database"></i> Send</a>';
-            } else {
-                return '-';
-            }
-        }
-    }
-
-    function sendWms(request_no) {
-        $.messager.confirm('Confirm', 'Are you sure you want to send data to WMS?', function(r) {
-            if (r) {
-                Swal.fire({
-                    title: 'Please Wait for Sending Data',
-                    showConfirmButton: false,
-                    allowOutsideClick: false,
-                    allowEscapeKey: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    },
-                });
-
-                var burl = "<?= base_url("api/wms/kanbanRequest") ?>";
-
-                $.ajax({
-                    type: "post",
-                    url: burl,
-                    data: {
-                        request_no: request_no
-                    },
-                    dataType: "json",
-                    success: function(msg) {
-                        if (msg.success) {
-                            Swal.fire("", msg.message, "success");
-                            // $.ajax({
-                            //     type: "post",
-                            //     url: '<?= base_url('api/wms/gateEntryClosing') ?>',
-                            //     data: {receipt_no: receipt_no},
-                            //     dataType: "json",
-                            //     success: function (si) {
-                            //         $('#dg').datagrid('reload');
-
-                            //         Swal.fire(
-                            //             "Info",
-                            //             msg.message,
-                            //             "success"
-                            //         );
-                            //     }
-                            // });
-                        } else {
-                            Swal.fire("", msg.message, "error");
-                        }
-                    },
-                    error: function() {
-                        Swal.fire("", "Failed to Sending Data WMS", "error");
-                    }
-                });
-            }
-        });
     }
 </script>

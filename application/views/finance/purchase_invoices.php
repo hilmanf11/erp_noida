@@ -12,7 +12,7 @@
             <!-- <th rowspan="2" data-options="field:'item_family_name',width:150,halign:'center'">Sub Category</th> -->
             <th rowspan="2" data-options="field:'journal_type_name',width:200,halign:'center'">Journal Name</th>
             <th rowspan="2" data-options="field:'supplier_name',width:250,halign:'center'">Supplier Name</th>
-            <th rowspan="2" data-options="field:'invoice_no',width:150,halign:'center'">Invoice No</th>
+            <tfh rowspan="2" data-options="field:'invoice_no',width:150,halign:'center'">Invoice No</tfh>
             <th rowspan="2" data-options="field:'invoice_date',width:120,halign:'center'">Invoice Date</th>
             <th rowspan="2" data-options="field:'boe_no',width:150,halign:'center'">BOE No</th>
             <th rowspan="2" data-options="field:'boe_date',width:120,halign:'center'">BOE Date</th>
@@ -660,8 +660,6 @@
         $("#type").combobox('setValue', "purchase");
         $("#trans_date").datebox("setValue", "<?= date("Y-m-d") ?>");
         $("#invoice_date").datebox("setValue", "<?= date("Y-m-d") ?>");
-
-        action = "ADD";
     }
 
     function addJournal() {
@@ -1170,15 +1168,6 @@
                     $('#dlg_insert').dialog('open');
                     $('#frm_insert').form('load', row);
 
-                    action = "EDIT";
-
-                    $("#trans_date").datebox({
-                        onChange: function(trans_date){
-                            $("#number").textbox('setValue', row.number);
-                        }
-                    });
-                    
-                    $("#trans_date").datebox("setValue", row.trans_date);
                     $("#type_selection_dp").hide();
 
                     $("#taxes").numberbox('setValue', row.taxes);
@@ -1768,234 +1757,216 @@
 
                     $.ajax({
                         type: "post",
-                        url: "<?= base_url('finance/purchase_invoices/number/'. $menus_id.'/') ?>" + btoa(trans_date),
-                        dataType: "html",
-                        success: function(resultNumber) {
-                            if(resultNumber == ""){
-                                toastr.info("Please Check Configuration in Serial No First");
+                        url: "<?= base_url('closing/locks/checkLock') ?>",
+                        data: "period=" + trans_date + "&menus_id=<?= $menus_id ?>",
+                        dataType: "json",
+                        success: function (lock) {
+                            if(lock.total > 0){
+                                toastr.error("This period is not active by Accounting");
                                 return false;
-                            }else{
-                                if(action == "ADD"){
-                                    var number = resultNumber;
-                                }else{
-                                    var number = $("#number").textbox('getValue');
-                                }
+                            }
 
-                                $.ajax({
-                                    type: "post",
-                                    url: "<?= base_url('closing/locks/checkLock') ?>",
-                                    data: "period=" + trans_date + "&menus_id=<?= $menus_id ?>",
-                                    dataType: "json",
-                                    success: function (lock) {
-                                        if(lock.total > 0){
-                                            toastr.error("This period is not active by Accounting");
+                            if (parseFloat(balance_debit) == parseFloat(balance_credit)) {
+                                if (por_no == "" || invoice_no == "" || supplier_id == "" || total_grand == "") {
+                                    toastr.error("please complete your input data");
+                                } else {
+                                    $('#dg2').datagrid('acceptChanges');
+
+                                    var rows = $('#dg2').datagrid('getRows');;
+                                    var totalrows = rows.length;
+
+                                    var rows2 = $('#dg3').datagrid('getRows');
+                                    var totalrows2 = rows2.length;
+                                    endEditing2();
+
+                                    for (let x = 0; x < totalrows; x++) {
+                                        var check = rows[x];
+                                        if(check.currency != "INR" && parseFloat(check.rate) == 1){
+                                            toastr.error("Please Ensure The Rate is Correct");
+                                            return false;
+                                        }
+                                    }
+
+                                    combinedPurchaseInvoice = [];
+                                    for (let i = 0; i < totalrows; i++) {
+                                        var json = rows[i];
+
+                                        combinedPurchaseInvoice.push({
+                                            type: type,
+                                            trans_date: trans_date,
+                                            invoice_date: invoice_date,
+                                            number: number,
+                                            supplier_id: supplier_id,
+                                            journal_type_id: journal_type_id,
+                                            invoice_no: invoice_no,
+                                            boe_no: boe_no,
+                                            boe_date: boe_date,
+                                            taxes: taxes,
+                                            payment_term: payment_term,
+                                            due_date: due_date,
+                                            voucher: voucher,
+                                            remarks: remarks,
+                                            tcs: tcs,
+                                            total_tds: total_tds,
+                                            total_tcs: total_tcs,
+                                            total_freight: total_freight,
+                                            total_dp: total_dp,
+                                            id: json.id,
+                                            asset_code: json.asset_code,
+                                            item_family_id: json.item_family_id,
+                                            por_no: json.por_no,
+                                            po_no: json.po_no,
+                                            item_rm_id: json.item_rm_id,
+                                            item_no: json.item_rm_number,
+                                            item_name: json.item_rm_name,
+                                            uom: json.uom,
+                                            currency: json.currency,
+                                            igst: json.igst,
+                                            sgst: json.sgst,
+                                            cgst: json.cgst,
+                                            rate: json.rate,
+                                            qty: json.qty,
+                                            price: json.price,
+                                            discount: json.discount,
+                                            total: json.total,
+                                            total2: json.total2,
+                                            total_idr: json.total_local,
+                                            account_number: json.account_number,
+                                            account_type: json.account_type,
+                                        });
+                                    }
+
+                                    combinedJournals = [];
+                                    for (let z = 0; z < totalrows2; z++) {
+                                        var json2 = rows2[z];
+
+                                        combinedJournals.push({
+                                            number: number,
+                                            account_number: json2.account_number,
+                                            account_name: json2.account_name,
+                                            debit: json2.debit,
+                                            credit: json2.credit,
+                                            flag: json2.flag,
+                                        });
+                                    }
+
+                                    var total_debit  = 0;
+                                    var total_credit = 0;
+                                    for (let jo = 0; jo < totalrows2; jo++) {
+                                        var dataJ = rows2[jo];
+
+                                        if(dataJ.account_number == "" || dataJ.account_name == ""){
+                                            toastr.error("Account Number Not Valid in Journals, Please Check your data input and save again!!");
                                             return false;
                                         }
 
-                                        if (parseFloat(balance_debit) == parseFloat(balance_credit)) {
-                                            if (por_no == "" || invoice_no == "" || supplier_id == "" || total_grand == "") {
-                                                toastr.error("please complete your input data");
-                                            } else {
-                                                $('#dg2').datagrid('acceptChanges');
-
-                                                var rows = $('#dg2').datagrid('getRows');;
-                                                var totalrows = rows.length;
-
-                                                var rows2 = $('#dg3').datagrid('getRows');
-                                                var totalrows2 = rows2.length;
-                                                endEditing2();
-
-                                                for (let x = 0; x < totalrows; x++) {
-                                                    var check = rows[x];
-                                                    if(check.currency != "INR" && parseFloat(check.rate) == 1){
-                                                        toastr.error("Please Ensure The Rate is Correct");
-                                                        return false;
-                                                    }
-                                                }
-
-                                                combinedPurchaseInvoice = [];
-                                                for (let i = 0; i < totalrows; i++) {
-                                                    var json = rows[i];
-
-                                                    combinedPurchaseInvoice.push({
-                                                        type: type,
-                                                        trans_date: trans_date,
-                                                        invoice_date: invoice_date,
-                                                        number: number,
-                                                        supplier_id: supplier_id,
-                                                        journal_type_id: journal_type_id,
-                                                        invoice_no: invoice_no,
-                                                        boe_no: boe_no,
-                                                        boe_date: boe_date,
-                                                        taxes: taxes,
-                                                        payment_term: payment_term,
-                                                        due_date: due_date,
-                                                        voucher: voucher,
-                                                        remarks: remarks,
-                                                        tcs: tcs,
-                                                        total_tds: total_tds,
-                                                        total_tcs: total_tcs,
-                                                        total_freight: total_freight,
-                                                        total_dp: total_dp,
-                                                        id: json.id,
-                                                        asset_code: json.asset_code,
-                                                        item_family_id: json.item_family_id,
-                                                        por_no: json.por_no,
-                                                        po_no: json.po_no,
-                                                        item_rm_id: json.item_rm_id,
-                                                        item_no: json.item_rm_number,
-                                                        item_name: json.item_rm_name,
-                                                        uom: json.uom,
-                                                        currency: json.currency,
-                                                        igst: json.igst,
-                                                        sgst: json.sgst,
-                                                        cgst: json.cgst,
-                                                        rate: json.rate,
-                                                        qty: json.qty,
-                                                        price: json.price,
-                                                        discount: json.discount,
-                                                        total: json.total,
-                                                        total2: json.total2,
-                                                        total_idr: json.total_local,
-                                                        account_number: json.account_number,
-                                                        account_type: json.account_type,
-                                                    });
-                                                }
-
-                                                combinedJournals = [];
-                                                for (let z = 0; z < totalrows2; z++) {
-                                                    var json2 = rows2[z];
-
-                                                    combinedJournals.push({
-                                                        number: number,
-                                                        account_number: json2.account_number,
-                                                        account_name: json2.account_name,
-                                                        debit: json2.debit,
-                                                        credit: json2.credit,
-                                                        flag: json2.flag,
-                                                    });
-                                                }
-
-                                                var total_debit  = 0;
-                                                var total_credit = 0;
-                                                for (let jo = 0; jo < totalrows2; jo++) {
-                                                    var dataJ = rows2[jo];
-
-                                                    if(dataJ.account_number == "" || dataJ.account_name == ""){
-                                                        toastr.error("Account Number Not Valid in Journals, Please Check your data input and save again!!");
-                                                        return false;
-                                                    }
-
-                                                    total_debit += parseFloat(dataJ.debit);
-                                                    total_credit += parseFloat(dataJ.credit);
-                                                }
-
-                                                if(total_debit == 0 && total_credit == 0){
-                                                    toastr.error("Debit and Credit still 0, please click add to journal first");
-                                                    return false;
-                                                }
-
-                                                $("#dlg_insert").dialog('close');
-
-                                                Swal.fire({
-                                                    title: 'Please Wait for Saving Data',
-                                                    showConfirmButton: false,
-                                                    allowOutsideClick: false,
-                                                    allowEscapeKey: false,
-                                                    didOpen: () => {
-                                                        Swal.showLoading();
-                                                    },
-                                                });
-
-                                                $.ajax({
-                                                    type: "post",
-                                                    url: "<?= base_url('finance/purchase_invoices/deleteJournal') ?>",
-                                                    data: "number=" + number,
-                                                    dataType: "json",
-                                                    success: function(response) {
-                                                        $.ajax({
-                                                            type: "post",
-                                                            url: '<?= base_url('finance/purchase_invoices/create') ?>',
-                                                            data: JSON.stringify({ dataPurchaseInvoices: combinedPurchaseInvoice, combinedJournals: combinedJournals}),
-                                                            dataType: "json",
-                                                            success: function (result) {
-                                                                Swal.close();
-
-                                                                Swal.fire({
-                                                                    title: 'Posting Journal',
-                                                                    text: result.message + ", Do you want to save journal posting to ?",
-                                                                    icon: result.theme,
-                                                                    showCancelButton: true,
-                                                                    allowOutsideClick: false,
-                                                                    allowEscapeKey: false,
-                                                                    confirmButtonText: 'Yes, Add to Journal!'
-                                                                }).then((msg) => {
-                                                                    if (msg.isConfirmed) {
-                                                                        Swal.fire({
-                                                                            title: 'Please Wait...',
-                                                                            showConfirmButton: false,
-                                                                            allowOutsideClick: false,
-                                                                            allowEscapeKey: false,
-                                                                            didOpen: () => {
-                                                                                Swal.showLoading();
-                                                                            },
-                                                                        });
-
-                                                                        $.ajax({
-                                                                            type: "post",
-                                                                            url: '<?= base_url('finance/purchase_invoices/createPosting') ?>',
-                                                                            data: {
-                                                                                number: number
-                                                                            },
-                                                                            dataType: "json",
-                                                                            success: function(result3) {
-                                                                                Swal.close();
-
-                                                                                Swal.fire({
-                                                                                    title: result3.message,
-                                                                                    icon: result3.theme,
-                                                                                    confirmButtonText: 'Ok',
-                                                                                    allowOutsideClick: false,
-                                                                                }).then((result3) => {
-                                                                                    if (result3.isConfirmed) {
-                                                                                        window.location.reload();
-                                                                                    }
-                                                                                });
-
-                                                                            }
-                                                                        });
-                                                                    }
-                                                                });
-                                                            },
-                                                            error: function(msg){
-                                                                Swal.fire({
-                                                                    title: "Failed to Save Data, Please Try Again",
-                                                                    icon: "error",
-                                                                    confirmButtonText: 'Ok',
-                                                                    allowOutsideClick: false,
-                                                                }).then((result3) => {
-                                                                    if (result3.isConfirmed) {
-                                                                        $.ajax({
-                                                                            type: "post",
-                                                                            url: "<?= base_url('finance/purchase_invoices/delete') ?>",
-                                                                            data: "number=" + number,
-                                                                            dataType: "json",
-                                                                            success: function(response) {
-                                                                                window.location.reload();
-                                                                            }
-                                                                        });
-                                                                    }
-                                                                });
-                                                            }
-                                                        });
-                                                    }
-                                                });
-                                            }
-                                        } else {
-                                            toastr.error("Balance Debit Cannot match on Balance Credit");
-                                        }
+                                        total_debit += parseFloat(dataJ.debit);
+                                        total_credit += parseFloat(dataJ.credit);
                                     }
-                                });
+
+                                    if(total_debit == 0 && total_credit == 0){
+                                        toastr.error("Debit and Credit still 0, please click add to journal first");
+                                        return false;
+                                    }
+
+                                    $("#dlg_insert").dialog('close');
+
+                                    Swal.fire({
+                                        title: 'Please Wait for Saving Data',
+                                        showConfirmButton: false,
+                                        allowOutsideClick: false,
+                                        allowEscapeKey: false,
+                                        didOpen: () => {
+                                            Swal.showLoading();
+                                        },
+                                    });
+
+                                    $.ajax({
+                                        type: "post",
+                                        url: "<?= base_url('finance/purchase_invoices/deleteJournal') ?>",
+                                        data: "number=" + number,
+                                        dataType: "json",
+                                        success: function(response) {
+                                            $.ajax({
+                                                type: "post",
+                                                url: '<?= base_url('finance/purchase_invoices/create') ?>',
+                                                data: JSON.stringify({ dataPurchaseInvoices: combinedPurchaseInvoice, combinedJournals: combinedJournals}),
+                                                dataType: "json",
+                                                success: function (result) {
+                                                    Swal.close();
+
+                                                    Swal.fire({
+                                                        title: 'Posting Journal',
+                                                        text: result.message + ", Do you want to save journal posting to ?",
+                                                        icon: result.theme,
+                                                        showCancelButton: true,
+                                                        allowOutsideClick: false,
+                                                        allowEscapeKey: false,
+                                                        confirmButtonText: 'Yes, Add to Journal!'
+                                                    }).then((msg) => {
+                                                        if (msg.isConfirmed) {
+                                                            Swal.fire({
+                                                                title: 'Please Wait...',
+                                                                showConfirmButton: false,
+                                                                allowOutsideClick: false,
+                                                                allowEscapeKey: false,
+                                                                didOpen: () => {
+                                                                    Swal.showLoading();
+                                                                },
+                                                            });
+
+                                                            $.ajax({
+                                                                type: "post",
+                                                                url: '<?= base_url('finance/purchase_invoices/createPosting') ?>',
+                                                                data: {
+                                                                    number: number
+                                                                },
+                                                                dataType: "json",
+                                                                success: function(result3) {
+                                                                    Swal.close();
+
+                                                                    Swal.fire({
+                                                                        title: result3.message,
+                                                                        icon: result3.theme,
+                                                                        confirmButtonText: 'Ok',
+                                                                        allowOutsideClick: false,
+                                                                    }).then((result3) => {
+                                                                        if (result3.isConfirmed) {
+                                                                            window.location.reload();
+                                                                        }
+                                                                    });
+
+                                                                }
+                                                            });
+                                                        }
+                                                    });
+                                                },
+                                                error: function(msg){
+                                                    Swal.fire({
+                                                        title: "Failed to Save Data, Please Try Again",
+                                                        icon: "error",
+                                                        confirmButtonText: 'Ok',
+                                                        allowOutsideClick: false,
+                                                    }).then((result3) => {
+                                                        if (result3.isConfirmed) {
+                                                            $.ajax({
+                                                                type: "post",
+                                                                url: "<?= base_url('finance/purchase_invoices/delete') ?>",
+                                                                data: "number=" + number,
+                                                                dataType: "json",
+                                                                success: function(response) {
+                                                                    window.location.reload();
+                                                                }
+                                                            });
+                                                        }
+                                                    });
+                                                }
+                                            });
+                                        }
+                                    });
+                                }
+                            } else {
+                                toastr.error("Balance Debit Cannot match on Balance Credit");
                             }
                         }
                     });

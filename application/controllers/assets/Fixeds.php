@@ -22,10 +22,10 @@ class Fixeds extends CI_Controller
             $data['button'] = $this->getbutton($this->id_menu());
             $data['menus_id'] = $this->id_menu();
 
-            $row = $this->crud->read("asset_fixeds", [], [], "1", "capitalization_date", "asc");
+            $row = $this->crud->read("asset_fixeds", [], [], "1", "trans_date", "asc");
 
-            $data['filter_from'] = @$row->capitalization_date;
-
+            $data['filter_from'] = @$row->trans_date;
+            
             $this->load->view('template/header', $data);
             $this->load->view('assets/fixeds');
         } else {
@@ -59,15 +59,15 @@ class Fixeds extends CI_Controller
                 $item_no = $invoice->item_no;
                 $fixed = $this->crud->query("SELECT distinct `number` FROM asset_fixeds WHERE `number` like '%$item_no%' and purchase_invoice_number = '$number'");
 
-                if (empty($fixed)) {
+                if(empty($fixed)){
                     $item[] = array("item_no" => $item_no);
                 }
             }
 
-            if (!empty($item)) {
+            if(!empty($item)){
                 array_push($finals, $row);
             }
-        }
+        }  
 
         echo json_encode($finals);
     }
@@ -92,10 +92,10 @@ class Fixeds extends CI_Controller
         foreach ($send as $row) {
             $item_no = $row->item_no;
             $send = $this->crud->query("SELECT distinct `number` FROM asset_fixeds WHERE `number` like '%$item_no%' and purchase_invoice_number = '$number'");
-            if (empty($send)) {
+            if(empty($send)){
                 array_push($finals, $row);
             }
-        }
+        }        
 
         echo json_encode($finals);
     }
@@ -113,8 +113,7 @@ class Fixeds extends CI_Controller
         echo json_encode($records);
     }
 
-    public function readExpired($month, $trans_date)
-    {
+    public function readExpired($month, $trans_date){
         $trans_date = base64_decode($trans_date);
         echo date("Y-m-d", strtotime("+" . $month . ' months', strtotime($trans_date)));
     }
@@ -163,12 +162,12 @@ class Fixeds extends CI_Controller
             $this->db->from('asset_fixeds a');
             $this->db->join('item_familys b', 'a.item_family_id = b.id');
             $this->db->join("(SELECT asset_no, SUM(debit) as depreciation_acc FROM asset_journals WHERE periode BETWEEN '$filter_period_from' and '$filter_period_to' GROUP BY asset_no) c", 'a.number = c.asset_no', 'left');
-            $this->db->join("(SELECT distinct number, document_no FROM journal_postings) d", 'a.purchase_invoice_no = d.document_no', 'left');
-            $this->db->where("a.capitalization_date >=", $filter_from);
-            $this->db->where("a.capitalization_date <=", $filter_to);
+            $this->db->join('journal_postings d', 'a.purchase_invoice_no = d.document_no', 'left');
+            $this->db->where('a.trans_date >=', $filter_from);
+            $this->db->where('a.trans_date <=', $filter_to);
             $this->db->group_by('a.id');
             $records = $this->db->get()->result_array();
-
+            
             $datas = [];
             $total_cost = 0;
             $total_acq_period = 0;
@@ -183,42 +182,42 @@ class Fixeds extends CI_Controller
             $total_wdv_close = 0;
             $total_depreciation = 0;
             foreach ($records as $record) {
-                $trans_date = date_create($record['capitalization_date']);
+                $trans_date = date_create($record['trans_date']);
                 $start_date = date_create($cutoff_from);
                 $end_date = date_create($cutoff_to);
 
-                if ($trans_date < $start_date) {
+                if($trans_date < $start_date){
                     $total_day = (date_diff($start_date, $end_date)->days + 1);
-                } else {
+                }else{
                     $total_day = (date_diff($trans_date, $end_date)->days + 1);
                 }
 
-                if ($record['usefull'] == 0) {
+                if($record['usefull'] == 0){
                     $estimate_day = 1;
-                } else {
+                }else{
                     $estimate_day = ($record['usefull'] * 365);
                 }
 
-                if ($record['capitalization_date'] < $cutoff_from) {
+                if($record['trans_date'] < $cutoff_from){
                     $cost = $record['cost'];
                     $acq_period = 0;
-                } elseif ($record['capitalization_date'] >= $cutoff_from) {
+                }elseif($record['trans_date'] >= $cutoff_from){
                     $cost = 0;
                     $acq_period = $record['cost'];
-                } else {
+                }else{
                     $cost = 0;
                     $acq_period = 0;
                 }
 
-                if ($cost != 0 && $estimate_day > 1) {
+                if($cost != 0 && $estimate_day > 1){
                     $addition_op = (round(((($cost - (($cost + $acq_period) * (5 / 100))) / $estimate_day) * $total_day) * $record['shift_factor'], 2));
-                } else {
+                }else{
                     $addition_op = 0;
                 }
 
-                if ($acq_period != 0 && $estimate_day > 1) {
+                if($acq_period != 0 && $estimate_day > 1){
                     $addition = (round(((($acq_period - (($cost + $acq_period) * (5 / 100))) / $estimate_day) * $total_day) * $record['shift_factor'], 2));
-                } else {
+                }else{
                     $addition = 0;
                 }
 
@@ -279,8 +278,8 @@ class Fixeds extends CI_Controller
 
             //Mapping Data
             $result['footer'] = array([
-                "number" => "GRAND TOTAL",
-                "cost" => $total_cost,
+                "number" => "GRAND TOTAL", 
+                "cost" => $total_cost, 
                 "acq_period" => $total_acq_period,
                 "acq_closing" => $total_acq_closing,
                 "residual" => $total_residual,
@@ -412,15 +411,13 @@ class Fixeds extends CI_Controller
                 'number' => $data->val($i, 6),
                 'name' => $data->val($i, 7),
                 'trans_date' => $data->val($i, 8),
-                'capitalization_date' => $data->val($i, 9),
-                'estimate_year' => $data->val($i, 10),
-                'uom' => $data->val($i, 11),
-                'qty' => $data->val($i, 12),
-                'cost' => $data->val($i, 13),
-                'accum_op' => $data->val($i, 14),
-                'posting_date' => $data->val($i, 15),
-                'departement' => $data->val($i, 16),
-                'plus' => $data->val($i, 17)
+                'estimate_year' => $data->val($i, 9),
+                'uom' => $data->val($i, 10),
+                'qty' => $data->val($i, 11),
+                'cost' => $data->val($i, 12),
+                'accum_op' => $data->val($i, 13),
+                'posting_date' => $data->val($i, 14),
+                'departement' => $data->val($i, 15)
             );
         }
 
@@ -468,26 +465,20 @@ class Fixeds extends CI_Controller
             $item_rm = $this->crud->read('item_rm', [], ["id" => $data['item_rm_id']]);
             $supplier = $this->crud->read('suppliers', [], ["id" => $data['supplier_id']]);
 
-            if ($item_family->number == "CW") {
+            if($item_family->number == "CW"){
                 $fixed_assets = $this->crud->read('asset_fixeds', [], ["number" => $data['number'], "name" => $data['name'], "purchase_invoice_no" => $data['purchase_invoice_no']]);
-            } else {
+            }else{
                 $fixed_assets = $this->crud->read('asset_fixeds', [], ["number" => $data['number']]);
             }
 
-            if ($data['plus'] == "MINUS") {
-                $kali = -1;
-            } else {
-                $kali = 1;
-            }
-
-            if (empty($data['cost']) || empty($data['estimate_year'])) {
-                $cost = ($data['cost'] * $kali);
+            if(empty($data['cost']) || empty($data['estimate_year'])){
+                $cost = $data['cost'];
                 $depreciation = 0;
                 $total = 0;
-            } else {
-                $cost = ($data['cost'] * $kali);
-                $depreciation = ($data['cost'] / ($data['estimate_year'] * 12) * $kali);
-                $total = (($data['qty'] * $data['cost']) * $kali);
+            }else{
+                $cost = $data['cost'];
+                $depreciation = ($data['cost'] / ($data['estimate_year'] * 12));
+                $total = ($data['qty'] * $data['cost']);
             }
 
             $dataFinal = array(
@@ -500,7 +491,6 @@ class Fixeds extends CI_Controller
                 "name" => $data['name'],
                 "shift" => @$item_family->shift,
                 "trans_date" => $data['trans_date'],
-                "capitalization_date" => $data['capitalization_date'],
                 "uom" => $data['uom'],
                 "qty" => $data['qty'],
                 "currency" => @$supplier->currency,
@@ -513,21 +503,21 @@ class Fixeds extends CI_Controller
                 "method" => "UPLOAD",
                 "departement" => $data['departement'],
                 "total" => $total,
-                "accum_op" => ($data['accum_op'] * $kali),
+                "accum_op" => $data['accum_op'],
                 "posting_date" => $data['posting_date'],
             );
 
             if (empty($item_family->id)) {
                 echo json_encode(array("title" => "Not Found", "message" => "Product Family " . $data['item_family_number'] . " Not Found", "theme" => "error"));
-                // } elseif (empty($item_rm->id)) {
-                //     echo json_encode(array("title" => "Not Found", "message" => "Part No EBWS " . $data['item_rm_id'] . " Not Found", "theme" => "error"));
+            // } elseif (empty($item_rm->id)) {
+            //     echo json_encode(array("title" => "Not Found", "message" => "Part No EBWS " . $data['item_rm_id'] . " Not Found", "theme" => "error"));
             } elseif (empty($supplier->id)) {
                 echo json_encode(array("title" => "Not Found", "message" => "Supplier ID " . $data['supplier_id'] . " Not Found", "theme" => "error"));
-                // } elseif (!empty($fixed_assets->id)) {
-                //     $send = $this->crud->update('asset_fixeds', ["id" => $fixed_assets->id], $dataFinal);
-                //     echo $send;
+            } elseif (!empty($fixed_assets->id)) {
+                $send = $this->crud->update('asset_fixeds', ["id" => $fixed_assets->id], $dataFinal);
+                echo $send;
             } else {
-                $send = $this->crud->create('asset_fixeds', $dataFinal, "logs");
+                $send = $this->crud->create('asset_fixeds', $dataFinal);
                 echo $send;
             }
         }
@@ -557,13 +547,13 @@ class Fixeds extends CI_Controller
             $html .= '<div style="width: 44mm;">';
             $no = 1;
             foreach ($records as $record) {
-                for ($i = 0; $i < $record->qty; $i++) {
+                for ($i=0; $i < $record->qty; $i++) {
                     if ($no == 1) {
                         $padding = "padding:2mm 3mm 3mm 2mm;";
                     } else {
                         $padding = "padding:2mm 3mm 3mm 2mm;";
                     }
-
+                
                     //Generate QRcode
                     $this->createQrcode($record->number, "assets/image/qrcode/");
                     $html .= '  <div style="width: 44mm; max-height:40mm; float:left; ' . $padding . '">
@@ -593,11 +583,11 @@ class Fixeds extends CI_Controller
                                                 <small>Quantity</small><br>
                                                 <center>
                                                     <b style="font-size:20px;">' . $no . "/" . number_format($record->qty, 0) . '</b></small><br>
-                                                    <small style="font-size:10px;"><b>' . $record->uom . '</b></small>
+                                                    <small style="font-size:10px;"><b>'. $record->uom . '</b></small>
                                                 </center>
                                             </td>
                                             <td style="text-align:left" width="200">
-                                                <small>Trans Date</small><br><b style="font-size:10px;">' . $record->trans_date . '</b><br>
+                                                <small>Trans Date</small><br><b style="font-size:10px;">'.$record->trans_date.'</b><br>
                                             </td>
                                         </tr>
                                     </table>
@@ -641,29 +631,28 @@ class Fixeds extends CI_Controller
             b.accout_number,
             b.name as asset_category_name, 
             b.type as asset_category_type, 
-            PERIOD_DIFF(DATE_FORMAT('$filter_to', '%Y%m'), DATE_FORMAT(trans_date, '%Y%m')) AS qty_month,
-            (CASE WHEN a.capitalization_date is null THEN a.posting_date WHEN a.capitalization_date = '0000-00-00' THEN '' ELSE a.capitalization_date END) as capitalization_date,
+            PERIOD_DIFF(DATE_FORMAT('$filter_to', '%Y%m'), DATE_FORMAT(trans_date, '%Y%m')) AS qty_month, 
             (COALESCE(c.depreciation_acc, 0) + a.depreciation_accumulate) as depreciation_acc,
             (a.cost - (c.depreciation_acc + a.depreciation_accumulate)) as book_value,
             (CASE WHEN (a.cost - (c.depreciation_acc + a.depreciation_accumulate)) > 0 THEN 0 ELSE 1 END) as status_expired");
         $this->db->from('asset_fixeds a');
         $this->db->join('asset_categories b', 'a.asset_category_number = b.number');
         $this->db->join("(SELECT asset_no, SUM(debit) as depreciation_acc FROM asset_journals WHERE periode BETWEEN '$filter_period_from' and '$filter_period_to' GROUP BY asset_no) c", 'a.number = c.asset_no', 'left');
-        $this->db->where("a.capitalization_date >=", $filter_from);
-        $this->db->where("a.capitalization_date <=", $filter_to);
-        if ($filter_category != "") {
+        $this->db->where('a.trans_date >=', $filter_from);
+        $this->db->where('a.trans_date <=', $filter_to);
+        if($filter_category != ""){
             $this->db->where('a.asset_category_number', $filter_category);
         }
-        if ($filter_number != "") {
+        if($filter_number != ""){
             $this->db->where('a.number', $filter_number);
         }
-        if ($filter_estimate != "") {
+        if($filter_estimate != ""){
             $this->db->where('a.estimate_year', $filter_estimate);
         }
-        if ($filter_purchase_invoice_number != "") {
+        if($filter_purchase_invoice_number != ""){
             $this->db->where('a.purchase_invoice_number', $filter_purchase_invoice_number);
         }
-        if ($filter_supplier != "") {
+        if($filter_supplier != ""){
             $this->db->where('a.supplier_name', $filter_supplier);
         }
         $this->db->group_by('a.id');
@@ -691,7 +680,7 @@ class Fixeds extends CI_Controller
                 <br>
                 <br>
                 <h3 style="margin:0;">ASSET FIXED</h3>
-                <small>Period ' . $filter_from . ' to ' . $filter_to . '</small>
+                <small>Period '.$filter_from.' to '.$filter_to.'</small>
             </center>
             <br>
             
@@ -705,8 +694,7 @@ class Fixeds extends CI_Controller
                 <th>Asset Type</th>
                 <th>Purchase Invoice</th>
                 <th>Supplier</th>
-                <th>Invoice Date</th>
-                <th>Capitalization Date</th>
+                <th>Purchase Date</th>
                 <th>Qty</th>
                 <th>Cost</th>
                 <th>EST. <br>Year</th>
@@ -722,9 +710,9 @@ class Fixeds extends CI_Controller
             </tr>';
         $no = 1;
         foreach ($records as $data) {
-            if ($data['status_expired'] == 1) {
+            if($data['status_expired'] == 1){
                 $status = "EXPIRED";
-            } else {
+            }else{
                 $status = "ACTIVE";
             }
             $html .= '<tr>
@@ -737,7 +725,6 @@ class Fixeds extends CI_Controller
                         <td>' . $data['purchase_invoice_number'] . '</td>
                         <td>' . $data['supplier_name'] . '</td>
                         <td>' . $data['trans_date'] . '</td>
-                        <td>' . $data['capitalization_date'] . '</td>
                         <td>' . $data['qty'] . '</td>
                         <td>' . $data['cost'] . '</td>
                         <td>' . $data['estimate_year'] . '</td>

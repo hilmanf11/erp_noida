@@ -95,7 +95,7 @@ class Report_general_ledgers extends CI_Controller
             LEFT JOIN sales_invoices c ON a.document_no = c.number
             LEFT JOIN ap_payments d ON a.document_no = d.payment_no
             LEFT JOIN ar_receipts e ON a.document_no = e.receipt_no
-            LEFT JOIN asset_fixeds f ON a.number = f.voucher_no and a.company_id = f.number
+            LEFT JOIN asset_fixeds f ON (a.number = f.voucher_no or a.number = f.purchase_invoice_no) and a.company_id = f.number
             WHERE a.account_number = '$filter_account' and a.modul != 'BANK STATEMENT' $where_period
             GROUP BY a.id");
             $data_1 = $query_1->result_array();
@@ -187,35 +187,27 @@ class Report_general_ledgers extends CI_Controller
                                 <th>Balance</th>
                             </tr>';
 
-                // $this->db->select('b.account_number, b.account_name, (COALESCE(a.original_debit, 0) + b.original_debit) as begin_debit, (COALESCE(a.original_credit, 0) + b.original_kredit) as begin_credit');
-                // $this->db->from('account_coa b');
-                // $this->db->join("(SELECT account_number, SUM(original_debit) as original_debit, SUM(original_credit) as original_credit FROM journal_postings WHERE journal_date < '$filter_from' GROUP BY account_number) a", "a.account_number = b.account_number", 'left');
-                // $this->db->where("b.account_number", $filter_account);
-                // $this->db->group_by('b.account_number');
-                // $begin_ori_tb = $this->db->get()->row();
-
-                // $this->db->select('account_number, account_name, header,
-                //         SUM(begin_debit) as begin_debit, 
-                //         SUM(begin_credit) as begin_credit');
-                // $this->db->from('trial_balances');
-                // $this->db->where('period =', $period);
-                // $this->db->where('account_number', $filter_account);
-                // $this->db->order_by('id', 'asc');
-                // $this->db->group_by('account_number', 'asc');
-                // $begin_tb = $this->db->get()->row();
-
-                $this->db->select('b.account_number, b.account_name, (COALESCE(a.local_debit, 0) + b.local_debit + COALESCE(c.local_debit, 0)) as begin_debit, (COALESCE(a.local_credit, 0) + b.local_kredit + COALESCE(c.local_credit, 0)) as begin_credit');
+                $this->db->select('b.account_number, b.account_name, (COALESCE(a.original_debit, 0) + b.original_debit) as begin_debit, (COALESCE(a.original_credit, 0) + b.original_kredit) as begin_credit');
                 $this->db->from('account_coa b');
-                $this->db->join("(SELECT account_number, SUM(local_debit) as local_debit, SUM(local_credit) as local_credit FROM journal_postings WHERE journal_date < '$filter_from' and modul != 'BANK STATEMENT' GROUP BY account_number) a", "a.account_number = b.account_number", 'left');
-                $this->db->join("(SELECT account_number, SUM(local_credit) as local_debit, SUM(local_debit) as local_credit FROM journal_postings WHERE journal_date < '$filter_from' and modul = 'BANK STATEMENT' GROUP BY account_number) c", "a.account_number = c.account_number", 'left');
+                $this->db->join("(SELECT account_number, SUM(original_debit) as original_debit, SUM(original_credit) as original_credit FROM journal_postings WHERE journal_date < '$filter_from' GROUP BY account_number) a", "a.account_number = b.account_number", 'left');
                 $this->db->where("b.account_number", $filter_account);
                 $this->db->group_by('b.account_number');
+                $begin_ori_tb = $this->db->get()->row();
+
+                $this->db->select('account_number, account_name, header,
+                        SUM(begin_debit) as begin_debit, 
+                        SUM(begin_credit) as begin_credit');
+                $this->db->from('trial_balances');
+                $this->db->where('period =', $period);
+                $this->db->where('account_number', $filter_account);
+                $this->db->order_by('id', 'asc');
+                $this->db->group_by('account_number', 'asc');
                 $begin_tb = $this->db->get()->row();
 
                 $no = 1;
-                // $ori_balance = abs(@$begin_ori_tb->begin_debit - @$begin_ori_tb->begin_credit);
-                // $ori_debit = 0;
-                // $ori_credit = 0;
+                $ori_balance = abs(@$begin_ori_tb->begin_debit - @$begin_ori_tb->begin_credit);
+                $ori_debit = 0;
+                $ori_credit = 0;
                 $local_balance = (@$begin_tb->begin_debit - @$begin_tb->begin_credit);
                 $local_debit = 0;
                 $local_credit = 0;

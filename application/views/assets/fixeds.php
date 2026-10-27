@@ -58,12 +58,12 @@
             <legend><b>Form Filter Data</b></legend>
             <div style="width: 80%; float: left;">
                 <div class="fitem">
-                    <span style="width:12%; display:inline-block;">Capitalization Date</span>
+                    <span style="width:12%; display:inline-block;">Invoice Date</span>
                     <input style="width:12%;" id="filter_from" value="<?= $filter_from ?>" class="easyui-datebox" data-options="formatter:myformatter,parser:myparser, editable:false"> To
                     <input style="width:12%;" id="filter_to" value="<?= date("Y-m-t") ?>" class="easyui-datebox" data-options="formatter:myformatter,parser:myparser, editable:false">
                     <span style="width:12%; display:inline-block;">&nbsp; &nbsp; Financial Date</span>
                     <input style="width:12%;" id="cutoff_from" value="<?= date("Y-04-01", strtotime("-1 year")) ?>" class="easyui-datebox" data-options="formatter:myformatter,parser:myparser, editable:false"> To
-                    <input style="width:12%;" id="cutoff_to" value="<?= date("Y-m-t", strtotime(date("Y-03-01"))) ?>" class="easyui-datebox" data-options="formatter:myformatter,parser:myparser, editable:false">
+                    <input style="width:12%;" id="cutoff_to" value="<?= date("Y-03-t") ?>" class="easyui-datebox" data-options="formatter:myformatter,parser:myparser, editable:false">
                     <a href="javascript:;" class="easyui-linkbutton" onclick="filter()"><i class="fa fa-search"></i> Filter Data</a>
                 </div>
             </div>
@@ -188,7 +188,7 @@
                     </div> -->
                 </div>
             </fieldset>
-
+            
             <fieldset style="width:100%; border:1px solid #d0d0d0; margin-bottom: 10px; border-radius:4px; float: left;">
                 <legend><b>General Information</b></legend>
                 <div style="width: 50%; float: left;">
@@ -334,7 +334,7 @@
             $("#capitalization_date").datebox({
                 onChange: function(val) {
                     var posting_date = $("#posting_date").datebox('getValue');
-                    if (val < posting_date) {
+                    if(val < posting_date){
                         toastr.warning("Capitalization date cannot be less than posting date");
                         $("#capitalization_date").datebox('clear');
                     }
@@ -374,8 +374,8 @@
                             url: "<?= base_url('closing/locks/checkLock') ?>",
                             data: "period=" + row.trans_date + "&menus_id=<?= $menus_id ?>",
                             dataType: "json",
-                            success: function(lock) {
-                                if (lock.total > 0) {
+                            success: function (lock) {
+                                if(lock.total > 0){
                                     toastr.error("This period is not active by Accounting");
                                     return false;
                                 }
@@ -426,24 +426,24 @@
             "&filter_to=" + window.btoa(filter_to) +
             "&cutoff_to=" + window.btoa(cutoff_to) +
             "&cutoff_from=" + window.btoa(cutoff_from);
-        // "&filter_number=" + window.btoa(filter_number) +
-        // "&filter_category=" + window.btoa(filter_category) +
-        // "&filter_estimate=" + window.btoa(filter_estimate) +
-        // "&filter_purchase_invoice_number=" + window.btoa(filter_purchase_invoice_number) +
-        // "&filter_supplier=" + window.btoa(filter_supplier);
+            // "&filter_number=" + window.btoa(filter_number) +
+            // "&filter_category=" + window.btoa(filter_category) +
+            // "&filter_estimate=" + window.btoa(filter_estimate) +
+            // "&filter_purchase_invoice_number=" + window.btoa(filter_purchase_invoice_number) +
+            // "&filter_supplier=" + window.btoa(filter_supplier);
 
         $('#dg').datagrid('loading');
 
         $.ajax({
-            url: '<?= base_url('assets/fixeds/datatables') ?>' + url,
-            type: 'POST',
+            url:'<?= base_url('assets/fixeds/datatables') ?>' + url,
+            type:'POST',
             // data: {
             //     filter_from:filter_from,
             //     filter_to:filter_to
             // },
             dataType: 'json',
-            success: function(result) {
-                $('#dg').datagrid('loadData', result).datagrid('loaded');
+            success: function(result) { 
+                $('#dg').datagrid('loadData',result).datagrid('loaded'); 
             }
         });
 
@@ -466,7 +466,7 @@
 
     function pdf() {
         // $("#printout").get(0).contentWindow.print();
-        $('#dg').datagrid('print', 'DataGrid');
+        $('#dg').datagrid('print','DataGrid');
     }
 
     function excel() {
@@ -488,7 +488,7 @@
 
         // window.location.assign('<?= base_url('assets/fixeds/print/excel') ?>' + url);
 
-        $('#dg').datagrid('toExcel', 'fixed_assets.xls');
+        $('#dg').datagrid('toExcel','fixed_assets.xls');
     }
 
     function reload() {
@@ -496,11 +496,11 @@
     }
 
     function BtnPrintLabel(val, row) {
-        var onClick = "princtLabel('" + row.number + "')";
-        return '<a class="btn btn-primary w-100" style="pointer-events: visible; opacity:1;" target="_blank" onClick="' + onClick + '"><i class="fa fa-print"></i> Print</a>';
+        var onClick = "princtLabel('"+row.number+"')";
+        return '<a class="btn btn-primary w-100" style="pointer-events: visible; opacity:1;" target="_blank" onClick="'+onClick+'"><i class="fa fa-print"></i> Print</a>';
     }
 
-    function princtLabel(number) {
+    function princtLabel(number){
         window.open("<?= base_url('assets/fixeds/print_label/') ?>" + window.btoa(number), '_blank');
     }
 
@@ -531,8 +531,8 @@
                         url: "<?= base_url('closing/locks/checkLock') ?>",
                         data: "period=" + trans_date + "&menus_id=<?= $menus_id ?>",
                         dataType: "json",
-                        success: function(lock) {
-                            if (lock.total > 0) {
+                        success: function (lock) {
+                            if(lock.total > 0){
                                 toastr.error("This period is not active by Accounting");
                                 return false;
                             }

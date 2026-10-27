@@ -75,27 +75,27 @@ class Journal_posting_banks extends CI_Controller
         $sql_menu = $this->db->query("SELECT * FROM menus_no WHERE menus_id = '$id_menu' and `status` = '0' and `start_date` <= '$datenow' and end_date >= '$datenow'");
         $row_menu = $sql_menu->row();
 
-        if (@$row_menu->number == "") {
+        if(@$row_menu->number == ""){
             //
-        } else {
+        }else{
             $number = @$row_menu->number;
             $yearnow = date("y", strtotime($row_menu->start_date));
             $yearend = date("y", strtotime($row_menu->end_date));
 
-            $whereDate = $number . $yearnow . $yearend . "1";
+            $whereDate = $number.$yearnow.$yearend."1";
 
-            $sqlGetID    = $this->db->query("SELECT max(`number`) as kode FROM journal_postings WHERE `number` like '%$whereDate%'");
+            $sqlGetID	= $this->db->query("SELECT max(`number`) as kode FROM journal_postings WHERE `number` like '%$whereDate%'");
             $rowID = $sqlGetID->row();
             $kode = $rowID->kode;
-
+            
             if ($kode == NULL) {
-                $autoID = sprintf("%0" . $row_menu->sequence . "s", $kode + 1);
-                $autoNo = $whereDate . $autoID;
+                $autoID = sprintf("%0".$row_menu->sequence."s", $kode + 1);
+                $autoNo = $whereDate.$autoID;
             } else {
                 $urutan = (int) substr($kode, -6);
                 $urutan++;
-                $autoID    = sprintf("%0" . $row_menu->sequence . "s", $urutan);
-                $autoNo = $whereDate . $autoID;
+                $autoID	= sprintf("%0".$row_menu->sequence."s", $urutan);
+                $autoNo = $whereDate.$autoID;
             }
 
             echo $autoNo;
@@ -137,7 +137,7 @@ class Journal_posting_banks extends CI_Controller
                 "modul" => $modul,
                 "account_number" => $journal['account_number'],
                 "account_name" => $journal['account_name'],
-                "description" => $journal['company_name'] . " | " . $journal['document_no'] . " | " . $journal['invoice_no'] . " | " . $journal['number'] . " | " . $number,
+                "description" => $journal['company_name'] ." | " . $journal['document_no'] ." | " . $journal['invoice_no'] . " | " . $journal['number'] . " | " . $number,
                 "currency" => $journal['currency'],
                 "original_debit" => $journal['original_debit'],
                 "original_credit" => $journal['original_credit'],
@@ -150,18 +150,18 @@ class Journal_posting_banks extends CI_Controller
             $grand_balance_local += ($journal['local_debit'] - $journal['local_credit']);
         }
 
-        if ($grand_balance_original > 0) {
+        if($grand_balance_original > 0){
             $grand_original_debit = abs($grand_balance_original);
             $grand_original_credit = 0;
-        } else {
+        }else{
             $grand_original_debit = 0;
             $grand_original_credit = abs($grand_balance_original);
         }
 
-        if ($grand_balance_local > 0) {
+        if($grand_balance_local > 0){
             $grand_local_debit = abs($grand_balance_local);
             $grand_local_credit = 0;
-        } else {
+        }else{
             $grand_local_debit = 0;
             $grand_local_credit = abs($grand_balance_local);
         }
@@ -244,17 +244,16 @@ class Journal_posting_banks extends CI_Controller
         }
     }
 
-    public function datatablesCheck()
-    {
+    public function datatablesCheck(){
         $post = $this->input->post();
 
         $journal_date = $post['journal_date'];
         $transaction_to = date("Y-m-t", strtotime($journal_date));
         $modul = $post['modul'];
 
-        if (!empty($post['document_no'])) {
+        if(!empty($post['document_no'])){
             $document_no = explode(",", $post['document_no']);
-        } else {
+        }else{
             $document_no = array();
         }
 
@@ -262,16 +261,17 @@ class Journal_posting_banks extends CI_Controller
         $this->db->from('journal_postings');
         $this->db->where('journal_date', $transaction_to);
         $this->db->where('modul', $modul);
-        if (count($document_no) > 0) {
+        if(count($document_no) > 0){
             $this->db->where_in('document_no', $document_no);
         }
         $totalRows = $this->db->count_all_results('', false);
 
-        if ($totalRows > 0) {
+        if($totalRows > 0){
             echo 1;
-        } else {
+        }else{
             echo 0;
         }
+
     }
 
     public function datatableDetails()
@@ -394,47 +394,25 @@ class Journal_posting_banks extends CI_Controller
         //Mapping Data
         $result['total'] = $totalRows;
         $result = array_merge($result, ['rows' => $records, 'footer' => $footer]);
-        echo json_encode($result);
+        echo json_encode($result);    
     }
 
     public function create()
     {
         if ($this->input->post()) {
-            $jsonData = file_get_contents("php://input");
-            $post = json_decode($jsonData, true);
-            $dataJournals = $post['dataJournals'];
 
-            foreach ($dataJournals as $dataJournal) {
-                $data2 = explode(" | ", $dataJournal['description']);
+            $post = $this->input->post();
+            $data = explode(" | ", $post['description']);
 
-                if (@$data2[3] != "") {
-                    $check = $this->crud->reads("journal_postings", ["description" => @$data2[3]], ["modul" => "BANK STATEMENT"]);
-
-                    if (count($check) > 0) {
-                        die(json_encode(array("title" => "Failed", "message" => "GL No " . @$data2[3] . " has been posting bank", "theme" => "error")));
-                    }
-                }
+            if(empty($post['id'])){
+                $send = $this->crud->create('journal_postings', $post);
+                $this->db->update('journal_postings', ["status_bank" => 1], ["number" => @$data[3]]);
+                $this->db->update('journal_postings', ["status_bank" => 1], ["number" => @$data[4]]);
+            }else{
+                $send = $this->crud->update('journal_postings', ["id" => $post['id']], $post);
             }
 
-            $this->db->trans_start();
-            foreach ($dataJournals as $dataJournal) {
-                if (!empty(@$purchase_invoice['id'])) {
-                    $send = $this->crud->update('journal_postings', ["id" => $purchase_invoice['id']], $dataJournal);
-                } else {
-                    $send = $this->crud->create('journal_postings', $dataJournal, "logs");
-                    if ($send) {
-                        $data = explode(" | ", $dataJournal['description']);
-                        $this->db->update('journal_postings', ["status_bank" => 1], ["number" => @$data[3], "account_number" => $dataJournal['account_number']]);
-                        $this->db->update('journal_postings', ["status_bank" => 1], ["number" => @$data[4], "account_number" => $dataJournal['account_number']]);
-                    }
-                }
-            }
-            $this->db->trans_complete();
-            if ($this->db->trans_status() === FALSE) {
-                echo json_encode(array("title" => "Error", "message" => "Data Saved Failed", "theme" => "error"));
-            } else {
-                echo json_encode(array("title" => "Success", "message" => "Data Saved Successfully", "theme" => "success"));
-            }
+            echo $send;
         } else {
             show_error("Cannot Process your request");
         }
@@ -447,8 +425,8 @@ class Journal_posting_banks extends CI_Controller
 
         foreach ($postings as $posting) {
             $result = explode(" | ", $posting->description);
-            $this->db->update('journal_postings', ["status_bank" => 0], ["number" => @$result[3], "account_number" => $posting->account_number]);
-            $this->db->update('journal_postings', ["status_bank" => 0], ["number" => @$result[4], "account_number" => $posting->account_number]);
+            $this->db->update('journal_postings', ["status_bank" => 0], ["number" => @$result[3]]);
+            $this->db->update('journal_postings', ["status_bank" => 0], ["number" => @$result[4]]);
         }
 
         $send = $this->crud->delete('journal_postings', $data);

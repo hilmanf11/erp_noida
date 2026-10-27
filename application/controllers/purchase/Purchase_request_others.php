@@ -32,8 +32,7 @@ class Purchase_request_others extends CI_Controller
         }
     }
 
-    public function readPono($supplier_id)
-    {
+    public function readPono($supplier_id){
         $supplier_id = base64_decode($supplier_id);
         $records = $this->crud->query("SELECT DISTINCT po_no FROM purchase_request_others WHERE `status` = '0' and supplier_id = '$supplier_id' GROUP BY po_no ORDER BY created_date desc");
         echo json_encode($records);
@@ -72,7 +71,7 @@ class Purchase_request_others extends CI_Controller
         $this->db->where("a.approved_to", "");
         $this->db->order_by('b.number', 'ASC');
         $records = $this->db->get()->result_array();
-
+        
         echo json_encode($records);
     }
 
@@ -89,18 +88,18 @@ class Purchase_request_others extends CI_Controller
         $this->db->where("d.approved_to", "");
         $this->db->order_by('a.number', 'ASC');
         $records = $this->db->get()->result_array();
-
+        
         echo json_encode($records);
     }
 
     public function readRequestno($supplier_id = "", $status = 0)
     {
-        if ($supplier_id == "") {
+        if($supplier_id == ""){
             $where_supplier = "";
-        } else {
+        }else{
             $where_supplier = "b.supplier_id = '$supplier_id' and";
         }
-
+        
         $supplier_id = base64_decode($supplier_id);
         $records = $this->crud->query("SELECT a.request_no, a.request_date, a.request_name 
             FROM purchase_request_others a 
@@ -110,16 +109,14 @@ class Purchase_request_others extends CI_Controller
         echo json_encode($records);
     }
 
-    public function readRequestname()
-    {
+    public function readRequestname(){
         $records = $this->crud->query("SELECT a.request_name 
             FROM purchase_request_others a
             GROUP BY a.request_name ORDER BY a.request_name asc");
         echo json_encode($records);
     }
 
-    public function readprodfam()
-    {
+    public function readprodfam(){
         $query = $this->db->query("SELECT DISTINCT a.id, a.number, a.name 
             FROM item_familys a 
             JOIN item_rm b ON a.id = b.item_family_id
@@ -129,8 +126,7 @@ class Purchase_request_others extends CI_Controller
         echo json_encode($records);
     }
 
-    public function readAssets()
-    {
+    public function readAssets(){
         $item_rm_id = base64_decode($this->input->post('item_rm_id'));
         $query = $this->db->query("SELECT * FROM assets WHERE status = 0 and item_rm_id = '$item_rm_id' ORDER BY `number` asc");
         $records = $query->row();
@@ -138,38 +134,37 @@ class Purchase_request_others extends CI_Controller
         echo json_encode($records);
     }
 
-    public function request_no($id_menu, $add = "")
-    {
+    public function request_no($id_menu, $add = ""){
         $datenow = date("Y-m-d");
         $sql_menu = $this->db->query("SELECT * FROM menus_no WHERE menus_id = '$id_menu' and `status` = '0' and `start_date` <= '$datenow' and end_date >= '$datenow'");
         $row_menu = $sql_menu->row();
 
-        if (@$row_menu->number == "") {
+        if(@$row_menu->number == ""){
             //
-        } else {
+        }else{
             $number = @$row_menu->number;
             $yearnow = date("y", strtotime($row_menu->start_date));
             $yearend = date("y", strtotime($row_menu->end_date));
 
-            $whereDate = $number . $yearnow . $yearend . "1";
+            $whereDate = $number.$yearnow.$yearend."1";
 
-            $sqlGetID    = $this->db->query("SELECT max(request_no) as kode FROM purchase_request_others WHERE request_no like '%$whereDate%'");
+            $sqlGetID	= $this->db->query("SELECT max(request_no) as kode FROM purchase_request_others WHERE request_no like '%$whereDate%'");
             $rowID = $sqlGetID->row();
             $kode = $rowID->kode;
-
+            
             if ($kode == NULL) {
-                $autoID = sprintf("%0" . $row_menu->sequence . "s", $kode + 1);
-                $autoNo = $whereDate . $autoID;
+                $autoID = sprintf("%0".$row_menu->sequence."s", $kode + 1);
+                $autoNo = $whereDate.$autoID;
             } else {
                 $urutan = (int) substr($kode, -6);
                 $urutan++;
-                $autoID    = sprintf("%0" . $row_menu->sequence . "s", $urutan);
-                $autoNo = $whereDate . $autoID;
+                $autoID	= sprintf("%0".$row_menu->sequence."s", $urutan);
+                $autoNo = $whereDate.$autoID;
             }
 
-            if ($add == "") {
+            if($add == ""){
                 return $autoNo;
-            } else {
+            }else{
                 die(json_encode(array("code" => $autoNo)));
             }
         }
@@ -184,8 +179,6 @@ class Purchase_request_others extends CI_Controller
         $filter_request_name = $this->input->get('filter_request_name');
         $filter_item_rm = $this->input->get('filter_item_rm');
         $filter_item_familys = $this->input->get('filter_item_familys');
-        $filter_status_po = $this->input->get('filter_status_po');
-        $filter_status_approval = $this->input->get('filter_status_approval');
 
         $page = $this->input->post('page');
         $rows = $this->input->post('rows');
@@ -203,28 +196,21 @@ class Purchase_request_others extends CI_Controller
             $this->db->join('item_familys c', "b.item_family_id = c.id");
             $this->db->join('assets d', 'a.asset_code = d.number', 'left');
             $this->db->where('a.deleted', 0);
-            if (!in_array($this->session->username, ["PURCHASE-03", "Purchase-01", "Sunil_1128", "PURCHASE-02", "admin", "hariom_bhardwaj", "ITADMIN", "Accounts01", "Accounts-07", "Vishal Sharma", "KJ SINGH", "Quality01", "Purchase-09", "maintenance_03", "STORE-05", "Purchase-08"])) {
+            if(!in_array($this->session->username, ["PURCHASE-03", "Purchase-01", "Sunil_1128", "PURCHASE-02", "admin", "hariom_bhardwaj", "ITADMIN", "Accounts01","Accounts-07","Vishal Sharma","KJ SINGH","Quality01","Purchase-09","maintenance_03"])){
                 $this->db->where('a.created_by', $this->session->username);
             }
             if ($filter_from != "" or $filter_to != "") {
                 $this->db->where('a.request_date >=', $filter_from);
                 $this->db->where('a.request_date <=', $filter_to);
             }
-            if ($filter_category != "") {
+            if($filter_category != ""){
                 $this->db->where('a.item_category_id', $filter_category);
             }
-            if ($filter_request_no != "") {
+            if($filter_request_no != ""){
                 $this->db->where('a.request_no', $filter_request_no);
             }
-            if ($filter_request_name != "") {
+            if($filter_request_name != ""){
                 $this->db->like('a.request_name', $filter_request_name);
-            }
-            if ($filter_status_approval != "") {
-                if ($filter_status_approval == "CHECKING") {
-                    $this->db->where("(a.approved_to != '' and a.approved_to is not null)");
-                } else {
-                    $this->db->where("(a.approved_to = '' or a.approved_to is null)");
-                }
             }
             $this->db->like('c.id', $filter_item_familys);
             $this->db->like('b.id', $filter_item_rm);
@@ -240,71 +226,48 @@ class Purchase_request_others extends CI_Controller
                 $request_no = $record['request_no'];
                 $purchase_order_other = $this->crud->query("SELECT a.request_no, COUNT(a.id) as total_po FROM purchase_order_others a JOIN item_rm b ON a.item_rm_id = b.id WHERE a.request_no='$request_no' and a.item_rm_id like '%$filter_item_rm%' and b.id like '%$filter_item_familys%' GROUP BY a.request_no");
 
-                if (@$purchase_order_other[0]->total_po == $record['total_pr']) {
+                if(@$purchase_order_other[0]->total_po == $record['total_pr']){
                     $status = 1;
-                } else {
+                }else{
                     $status = 0;
                 }
 
-                if ($filter_status_po != "" && $filter_status_po != $status) {
-                    //
-                } else {
-                    $arr[] = array(
-                        "id" => $record['request_no'],
-                        "request_no" => $record['request_no'],
-                        "request_date" => $record['request_date'],
-                        "expected_date" => $record['expected_date'],
-                        "request_name" => $record['request_name'],
-                        "item_category_id" => $record['item_category_id'],
-                        "qty" => $record['qty'],
-                        "status" => $status,
-                        "asset_code" => $record['asset_code'],
-                        "asset_name" => $record['asset_name'],
-                        "asset_qty" => $record['asset_qty'],
-                        "asset_uom" => $record['asset_uom'],
-                        "state" => "closed",
-                        "datatable" => 1
-                    );
-                }
+                $arr[] = array(
+                    "id" => $record['request_no'],
+                    "request_no" => $record['request_no'],
+                    "request_date" => $record['request_date'],
+                    "expected_date" => $record['expected_date'],
+                    "request_name" => $record['request_name'],
+                    "item_category_id" => $record['item_category_id'],
+                    "qty" => $record['qty'],
+                    "status" => $status,
+                    "asset_code" => $record['asset_code'],
+                    "asset_name" => $record['asset_name'],
+                    "asset_qty" => $record['asset_qty'],
+                    "asset_uom" => $record['asset_uom'],
+                    "state" => "closed",
+                    "datatable" => 1
+                );
             }
-
+            
             $result['total'] = $totalRows;
             $result = array_merge($result, ['rows' => @$arr]);
             echo json_encode($result);
         } else {
-            $this->db->select("a.*, 
+            $this->db->select('a.*, 
                 b.number as item_rm_number, 
                 b.name as item_rm_name,
                 b.uom, 
                 c.name as item_family_name,
-                d.po_no,
-                e.created_date as asset_date,
-                f.name as item_category_name,
-                (CASE WHEN f.type = 'ASSET' THEN 'YES' ELSE 'NO' END) as asset_type");
+                d.po_no');
             $this->db->from('purchase_request_others a');
             $this->db->join('item_rm b', 'a.item_rm_id = b.id');
             $this->db->join('item_familys c', "b.item_family_id = c.id");
-            $this->db->join('item_categories f', "b.item_category_id = f.id");
             $this->db->join('purchase_order_others d', 'a.request_no = d.request_no and a.item_rm_id = d.item_rm_id', 'left');
-            $this->db->join('assets e', 'a.request_no = e.request_no and a.item_rm_id = e.item_rm_id', 'left');
             $this->db->where('a.deleted', 0);
             if ($filter_from != "" or $filter_to != "") {
                 $this->db->where('a.request_date >=', $filter_from);
                 $this->db->where('a.request_date <=', $filter_to);
-            }
-            if ($filter_status_approval != "") {
-                if ($filter_status_approval == "CHECKING") {
-                    $this->db->where("(a.approved_to != '' and a.approved_to is not null)");
-                } else {
-                    $this->db->where("(a.approved_to = '' or a.approved_to is null)");
-                }
-            }
-            if ($filter_status_po != "") {
-                if ($filter_status_approval == "0") {
-                    $this->db->where("d.po_no is null");
-                } else {
-                    $this->db->where("d.po_no is not null");
-                }
             }
             $this->db->where('a.request_no', $id);
             $this->db->like('c.id', $filter_item_familys);
@@ -315,10 +278,9 @@ class Purchase_request_others extends CI_Controller
         }
     }
 
-    public function datatable_updates()
-    {
+    public function datatable_updates(){
         $request_no = base64_decode($this->input->get('request_no'));
-
+        
         $records = $this->crud->query("SELECT a.*, c.number as item_number, c.name as item_rm_name, d.name as item_family_name
             FROM purchase_request_others a
             JOIN item_rm c on a.item_rm_id = c.id
@@ -343,13 +305,13 @@ class Purchase_request_others extends CI_Controller
                 } else {
                     // $sql = $this->db->query("SELECT max(`asset_code_sub`) as kode FROM purchase_request_others WHERE `asset_code` like '%$asset_code%'");
                     // $row = $sql->row();
-
+                    
                     // if ($row->kode == "") {
                     //     $kode = "00";
                     // } else {
                     //     $kode = sprintf("%02s", (substr($row->kode, -2) + 1));
                     // }
-
+                    
                     // $asset_code_sub = $asset_code . "-" . $kode;
 
                     // $send = $this->crud->create('purchase_request_others', array_merge($post, ["request_type" => "OTHER", "p_month" => $p_month, "p_year" => $p_year, "asset_code_sub" => $asset_code_sub]));
@@ -397,7 +359,7 @@ class Purchase_request_others extends CI_Controller
         $data = new Spreadsheet_Excel_Reader($file, false);
         $total_row = $data->rowcount($sheet_index = 0);
         $category = $data->val(2, 3);
-
+        
         for ($i = 3; $i <= $total_row; $i++) {
             $datas[] = array(
                 'request_no' => $data->val($i, 2),
@@ -413,7 +375,7 @@ class Purchase_request_others extends CI_Controller
                 'remarks' => $data->val($i, 8)
             );
         }
-
+        
         $datas['total'] = count($datas);
         echo json_encode($datas);
         unlink($_FILES['file_upload']['name']);
@@ -423,7 +385,7 @@ class Purchase_request_others extends CI_Controller
     {
         @unlink('failed/purchase_request_others.txt');
     }
-
+    
     public function uploadcreateFailed()
     {
         if ($this->input->post()) {
@@ -457,7 +419,7 @@ class Purchase_request_others extends CI_Controller
 
             if (empty($item->id)) {
                 echo json_encode(array("title" => "Not Found", "message" => "Part No " . $data['item_rm_id'] . " Not Found", "theme" => "error"));
-            } elseif (!in_array($data['item_category_id'], ['OTHER', 'SERVICE', 'ASSET'])) {
+            } elseif (!in_array($data['item_category_id'], ['OTHER','SERVICE','ASSET'])) {
                 echo json_encode(array("title" => "Not Match", "message" => "Category " . $data['item_category_id'] . " Not Match", "theme" => "error"));
             } elseif (!empty($purchase_request_others->id)) {
                 echo json_encode(array("title" => "Duplicated", "message" => "Part No " . $data['item_rm_id'] . " Duplicate Data", "theme" => "error"));
@@ -481,20 +443,20 @@ class Purchase_request_others extends CI_Controller
         $user_1 = $this->crud->read("users", [], ["username" => @$approval->user_approval_1]);
         $user_2 = $this->crud->read("users", [], ["username" => @$approval->user_approval_2]);
         $user_3 = $this->crud->read("users", [], ["username" => @$approval->user_approval_3]);
-
-        if ($purchase_requests->approved_by == @$approval->user_approval_1) {
-            $imge_1 = '<img src="' . base_url('assets/image/approved.png') . '" width="100"/>';
+        
+        if($purchase_requests->approved_by == @$approval->user_approval_1){
+            $imge_1 = '<img src="'.base_url('assets/image/approved.png').'" width="100"/>';
             $imge_2 = "";
             $imge_3 = "";
-        } elseif ($purchase_requests->approved_by == @$approval->user_approval_2) {
-            $imge_1 = '<img src="' . base_url('assets/image/approved.png') . '" width="100"/>';
-            $imge_2 = '<img src="' . base_url('assets/image/approved.png') . '" width="100"/>';
+        }elseif($purchase_requests->approved_by == @$approval->user_approval_2){
+            $imge_1 = '<img src="'.base_url('assets/image/approved.png').'" width="100"/>';
+            $imge_2 = '<img src="'.base_url('assets/image/approved.png').'" width="100"/>';
             $imge_3 = '';
-        } elseif ($purchase_requests->approved_by == @$approval->user_approval_3) {
-            $imge_1 = '<img src="' . base_url('assets/image/approved.png') . '" width="100"/>';
-            $imge_2 = '<img src="' . base_url('assets/image/approved.png') . '" width="100"/>';
-            $imge_3 = '<img src="' . base_url('assets/image/approved.png') . '" width="100"/>';
-        } else {
+        }elseif($purchase_requests->approved_by == @$approval->user_approval_3){
+            $imge_1 = '<img src="'.base_url('assets/image/approved.png').'" width="100"/>';
+            $imge_2 = '<img src="'.base_url('assets/image/approved.png').'" width="100"/>';
+            $imge_3 = '<img src="'.base_url('assets/image/approved.png').'" width="100"/>';
+        }else{
             $imge_1 = "";
             $imge_2 = "";
             $imge_3 = "";
@@ -618,21 +580,21 @@ class Purchase_request_others extends CI_Controller
                             <div style="width:60%; float:right; margin-bottom: 10px;">
                                 <table id="customers" style="margin-top:20px;">
                                     <tr>
-                                        <th colspan="3" style="text-align:center;">' . $config->name . '</th>
+                                        <th colspan="3" style="text-align:center;">'.$config->name.'</th>
                                     </tr>
                                     <tr>
-                                        <th style="height:80px;">' . @$imge_1 . '</th>
-                                        <th style="height:80px;">' . @$imge_2 . '</th>
-                                        <th style="height:80px;">' . @$imge_3 . '</th>
+                                        <th style="height:80px;">'.@$imge_1.'</th>
+                                        <th style="height:80px;">'.@$imge_2.'</th>
+                                        <th style="height:80px;">'.@$imge_3.'</th>
                                     </tr>
                                     <tr>
-                                        <th style="height:20px; text-align:center;">' . @$user_1->name . '</th>
-                                        <th style="height:20px; text-align:center;">' . @$user_2->name . '</th>
-                                        <th style="height:20px; text-align:center;">' . @$user_3->name . '</th>
+                                        <th style="height:20px; text-align:center;">'.@$user_1->name.'</th>
+                                        <th style="height:20px; text-align:center;">'.@$user_2->name.'</th>
+                                        <th style="height:20px; text-align:center;">'.@$user_3->name.'</th>
                                     </tr>
                                 </table>
                             </div>';
-            } else {
+            }else{
                 if (($i + 1) != $page) {
                     $html .= '<div style="page-break-after:always;"></div>';
                 }
@@ -644,7 +606,7 @@ class Purchase_request_others extends CI_Controller
         $html .= '</div><script>window.print()</script>';
         die($html);
     }
-
+    
     public function print($option = "")
     {
         if ($option == "excel") {
@@ -660,57 +622,39 @@ class Purchase_request_others extends CI_Controller
         $filter_request_name = $this->input->get('filter_request_name');
         $filter_item_rm = $this->input->get('filter_item_rm');
         $filter_item_familys = $this->input->get('filter_item_familys');
-        $filter_status_po = $this->input->get('filter_status_po');
-        $filter_status_approval = $this->input->get('filter_status_approval');
 
         //Config
         $this->db->select('*');
         $this->db->from('config');
         $config = $this->db->get()->row();
-
-        $this->db->select("a.*, b.number as item_rm_number, b.name as item_rm_name, c.name as item_family_name, e.po_no, b.uom, d.created_date as asset_date, f.name as item_category_name, (CASE WHEN f.type = 'ASSET' THEN 'YES' ELSE 'NO' END) as asset_type");
+        
+        $this->db->select('a.*, b.number as item_rm_number, b.name as item_rm_name, c.name as item_family_name, e.po_no, b.uom');
         $this->db->from('purchase_request_others a');
         $this->db->join('item_rm b', 'a.item_rm_id = b.id');
         $this->db->join('item_familys c', "b.item_family_id = c.id");
-        $this->db->join('item_categories f', "b.item_category_id = f.id");
-        $this->db->join('assets d', 'a.request_no = d.request_no and a.item_rm_id = d.item_rm_id', 'left');
         $this->db->join('purchase_order_others e', 'a.request_no = e.request_no and a.item_rm_id = e.item_rm_id', 'left');
         $this->db->where('a.deleted', 0);
-        if (!in_array($this->session->username, ["PURCHASE-03", "Purchase-01", "Sunil_1128", "PURCHASE-02", "admin", "hariom_bhardwaj", "ITADMIN", "Accounts01", "Accounts-07", "Vishal Sharma", "KJ SINGH", "Quality01", "Purchase-09", "maintenance_03", "STORE-05", "Purchase-08"])) {
+        if(!in_array($this->session->username, ["PURCHASE-03", "Purchase-01", "Sunil_1128", "PURCHASE-02", "admin", "hariom_bhardwaj", "ITADMIN", "Accounts01","Accounts-07","Vishal Sharma","KJ SINGH","Quality01"])){
             $this->db->where('a.created_by', $this->session->username);
         }
         if ($filter_from != "" or $filter_to != "") {
             $this->db->where('a.request_date >=', $filter_from);
             $this->db->where('a.request_date <=', $filter_to);
         }
-        if ($filter_category != "") {
+        if($filter_category != ""){
             $this->db->like('a.item_category_id', $filter_category);
         }
-        if ($filter_request_no != "") {
+        if($filter_request_no != ""){
             $this->db->like('a.request_no', $filter_request_no);
         }
-        if ($filter_request_name != "") {
+        if($filter_request_name != ""){
             $this->db->like('a.request_name', $filter_request_name);
-        }
-        if ($filter_status_approval != "") {
-            if ($filter_status_approval == "CHECKING") {
-                $this->db->where("(a.approved_to != '' and a.approved_to is not null)");
-            } else {
-                $this->db->where("(a.approved_to = '' or a.approved_to is null)");
-            }
-        }
-        if ($filter_status_po != "") {
-            if ($filter_status_approval == "0") {
-                $this->db->where("e.po_no is null");
-            } else {
-                $this->db->where("e.po_no is not null");
-            }
         }
         $this->db->like('c.id', $filter_item_familys);
         $this->db->like('b.id', $filter_item_rm);
         $this->db->order_by('a.request_no', 'DESC');
         $records = $this->db->get()->result_array();
-
+        
         $html = '<html><head><title>Print Data</title></head><style>body {font-family: Arial, Helvetica, sans-serif;}#customers {border-collapse: collapse;width: 100%;font-size: 12px;}#customers td, #customers th {border: 1px solid black;padding: 2px;}#customers tr:nth-child(even){background-color: #f2f2f2;}#customers tr:hover {background-color: black;}#customers th {padding-top: 2px;padding-bottom: 2px;text-align: center;color: black;}</style><body>
             <center>
                 <div style="float: left; font-size: 12px; text-align: left;">
@@ -736,8 +680,6 @@ class Purchase_request_others extends CI_Controller
             <table id="customers" border="1">
             <tr>
                 <th width="20">No</th>
-                <th>Status PO</th>
-                <th>Status Approval</th>
                 <th>Request No</th>
                 <th>Request Date</th>
                 <th>Request Name</th>
@@ -745,16 +687,15 @@ class Purchase_request_others extends CI_Controller
                 <th>Part No EBWS</th>
                 <th>Part No Supplier</th>
                 <th>Description</th>
-                <th>Cateogry</th>
-                <th>Asset Type</th>
                 <th>Asset Code</th>
-                <th>Asset Date</th>
+                <th>Asset Code Sub</th>
                 <th>Product Family</th>
                 <th>Uom</th>
                 <th>Qty</th>
                 <th>Currency</th>
                 <th>Est. Price</th>
                 <th>Total</th>
+                <th>Status</th>
                 <th>PO No</th>
                 <th>Remarks</th>
                 <th>Created By</th>
@@ -770,32 +711,24 @@ class Purchase_request_others extends CI_Controller
             } else {
                 $status = "CONVERTED";
             }
-            if (empty($data['approved_to'])) {
-                $status_approval = "APPROVED";
-            } else {
-                $status_approval = "CHECKING";
-            }
             $html .= '<tr>
                         <td style="text-align:center">' . $no . '</td>
-                        <td>' . $status . '</td>
-                        <td>' . $status_approval . '</td>
                         <td>' . $data['request_no'] . '</td>
                         <td>' . $data['request_date'] . '</td>
-                        <td>' . $data['request_name'] . '</td>
                         <td>' . $data['expected_date'] . '</td>
+                        <td>' . $data['request_name'] . '</td>
                         <td>' . $data['item_rm_id'] . '</td>
                         <td>' . $data['item_rm_number'] . '</td>
                         <td>' . $data['item_rm_name'] . '</td>
-                        <td>' . $data['item_category_name'] . '</td>
-                        <td>' . $data['asset_type'] . '</td>
                         <td>' . $data['asset_code'] . '</td>
-                        <td>' . $data['asset_date'] . '</td>
+                        <td>' . $data['asset_code_sub'] . '</td>
                         <td>' . $data['item_family_name'] . '</td>
                         <td>' . $data['uom'] . '</td>
                         <td>' . $data['qty'] . '</td>
                         <td>' . $data['currency'] . '</td>
                         <td>' . $data['price'] . '</td>
                         <td>' . $data['total'] . '</td>
+                        <td>' . $status . '</td>
                         <td>' . $data['po_no'] . '</td>
                         <td>' . $data['remarks'] . '</td>
                         <td>' . $data['created_by'] . '</td>

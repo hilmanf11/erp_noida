@@ -39,20 +39,14 @@
     <?= $button ?>
 </div>
 
-<div id="dlg_upload" class="easyui-dialog" title="Upload Data" data-options="closed: true,modal:true" style="width: 500px; padding:10px; top: 20px;">
-    <form id="frm_upload" method="post" enctype="multipart/form-data" novalidate>
-        <fieldset style="width:100%; border:1px solid #d0d0d0; margin-bottom: 10px; border-radius:4px; float: left;">
-            <legend><b>Form Data</b></legend>
-            <div class="fitem">
-                <span style="width:30%; display:inline-block;">File Upload</span>
-                <input name="file_upload" style="width: 60%;" required="" accept=".xls" id="file_excel" class="easyui-filebox">
-            </div>
-        </fieldset>
-    </form>
-    <span style="float: left; color:green;">SUCCESS : <b id="p_success">0</b></span><span style="float: right; color:red;"> FAILED : <b id="p_failed">0</b></span>
-    <div id="p_upload" class="easyui-progressbar" style="width:100%; margin-top: 10px;"></div>
+<div id="dlg_generate" class="easyui-dialog" title="Save Data" data-options="closed: true,modal:true,closable: false" style="width: 500px; padding:10px; top: 20px;">
+    <div class="alert alert-warning" role="alert">
+        Please wait until the save process is complete
+    </div>
+    <div id="p_upload" class="easyui-progressbar" style="width:460px; margin-top: 10px;"></div>
     <center><b id="p_start">0</b> Of <b id="p_finish">0</b></center>
-    <div id="p_remarks" title="History Upload" class="easyui-panel" style="width:100%; height:200px; padding:10px; margin-top: 10px;">
+    <div id="p_remarks" class="easyui-panel" style="width:460px; height:200px; padding:10px; margin-top: 10px;">
+        <p>History Save Data</p>
         <ul id="remarks">
 
         </ul>
@@ -66,6 +60,109 @@
 <script>
     function add(){
         toastr.info("Generate Not Available Now");
+        // var filter_from = $("#filter_from").datebox('getValue');
+        // var filter_to = $("#filter_to").datebox('getValue');
+        // var filter_item_family = $("#filter_item_family").combobox('getValue');
+        // var filter_items = $("#filter_items").combogrid('getValue');
+        // var filter_display = $("#filter_display").combobox('getValue');
+        // var filter_transtype = $("#filter_transtype").combobox('getValue');
+
+        // $.ajax({
+        //     type: "post",
+        //     url: "<?= base_url('closing/locks/checkLock') ?>",
+        //     data: "period=" + filter_from + "&menus_id=<?= $menus_id ?>",
+        //     dataType: "json",
+        //     success: function (lock) {
+        //         if(lock.total > 0){
+        //             toastr.error("This period is not active by Accounting");
+        //             return false;
+        //         }
+
+        //         $.messager.confirm('Warning', 'Are you sure you want to save this data?', function(r) {
+        //             if (r) {
+        //                 Swal.fire({
+        //                     title: 'Please wait, the system is generate a lot of data, it may take a long time.',
+        //                     showConfirmButton: false,
+        //                     allowOutsideClick: false,
+        //                     allowEscapeKey: false,
+        //                     didOpen: () => {
+        //                         Swal.showLoading();
+        //                     },
+        //                 });
+
+        //                 $("#p_remarks").html("");
+
+        //                 $.ajax({
+        //                     type: "post",
+        //                     url: '<?= base_url('costing/inventory_rm/getData') ?>',
+        //                     data: {
+        //                         filter_from: filter_from,
+        //                         filter_to: filter_to,
+        //                         filter_item_family: filter_item_family,
+        //                         filter_items: filter_items,
+        //                     },
+        //                     dataType: "json",
+        //                     success: function(data) {
+        //                         Swal.close();
+
+        //                         if(data.total > 0){
+        //                             requestData(data.total, data.rows);
+        //                             $('#dlg_generate').dialog('open');
+
+        //                             function requestData(total, json, jml = 1, value = 0) {
+        //                                 if (value < 100) {
+        //                                     value = Math.floor((jml / total) * 100);
+        //                                     var i = (jml - 1);
+
+        //                                     $('#p_upload').progressbar('setValue', value);
+        //                                     $('#p_start').html(jml);
+        //                                     $('#p_finish').html(data.total);
+
+        //                                     $.ajax({
+        //                                         type: "post",
+        //                                         url: '<?= base_url('costing/inventory_rm/create') ?>',
+        //                                         data: {
+        //                                             data: json[i]
+        //                                         },
+        //                                         dataType: "json",
+        //                                         success: function(result) {
+        //                                             requestData(total, json, jml + 1, value);
+
+        //                                             if (result.theme == "success") {
+        //                                                 var title = "<b style='color: green;'>" + result.title + "</b> | " + result.message;
+        //                                             } else {
+        //                                                 var title = "<b style='color: red;'>" + result.title + "</b> | " + result.message;
+        //                                             }
+
+        //                                             $("#p_remarks").append(title + "<br>");
+
+        //                                             if (i == (data.total - 1)) {
+        //                                                 $('#dlg_generate').dialog('close');
+
+        //                                                 Swal.fire({
+        //                                                     title: result.message,
+        //                                                     icon: result.theme,
+        //                                                     confirmButtonText: 'Ok',
+        //                                                     allowOutsideClick: false,
+        //                                                 }).then((result) => {
+        //                                                     // if (result.isConfirmed) {
+        //                                                     //     window.location.reload();
+        //                                                     // }
+        //                                                 });
+        //                                             }
+        //                                         }
+        //                                     });
+        //                                 }
+        //                             }
+        //                         }else{
+        //                             toastr.warning("Data not Found!");
+        //                         }
+        //                     }
+        //                 });
+        //             }
+        //         });
+        //     }
+        // });
     }
 
     function reload() {
@@ -74,15 +171,6 @@
 
     function pdf() {
         $("#printout").get(0).contentWindow.print();
-    }
-
-    //UPLOAD DATA
-    function upload() {
-        $('#dlg_upload').dialog('open');
-    }
-
-    function download_excel() {
-        window.location.assign('<?= base_url('template/tmp_inventory_rm.xls') ?>');
     }
 
     function filter() {
@@ -118,108 +206,6 @@
 
     $(function() {
         $("#add").html("Save Inventory RM");
-
-        //UPLOAD DATA
-        $('#dlg_upload').dialog({
-            buttons: [{
-                text: 'List Failed',
-                handler: function() {
-                    window.open('<?= base_url('costing/inventory_rm/uploadDownloadFailed') ?>', '_blank');
-                }
-            }, {
-                text: 'Upload',
-                iconCls: 'icon-ok',
-                handler: function() {
-                    $('#frm_upload').form('submit', {
-                        url: '<?= base_url('costing/inventory_rm/upload') ?>',
-                        onSubmit: function() {
-                            if ($(this).form('validate') == false) {
-                                return $(this).form('validate');
-                            } else {
-                                $.messager.progress({
-                                    title: 'Please Wait',
-                                    msg: 'Importing Excel to Database'
-                                });
-                            }
-                        },
-                        success: function(result) {
-                            $.messager.progress('close');
-
-                            //Clear File
-                            $.ajax({
-                                url: "<?= base_url('costing/inventory_rm/uploadclearFailed') ?>"
-                            });
-
-                            var json = eval('(' + result + ')');
-                            requestData(json.total, json);
-
-                            function requestData(total, json, number = 1, value = 0, success = 1, failed = 1) {
-                                if (value < 100) {
-                                    value = Math.floor((number / total) * 100);
-                                    $('#p_upload').progressbar('setValue', value);
-                                    $('#p_start').html(number);
-                                    $('#p_finish').html(total);
-
-                                    $.ajax({
-                                        type: "POST",
-                                        async: true,
-                                        url: "<?= base_url('costing/inventory_rm/uploadCreate') ?>",
-                                        data: {
-                                            "data": json[number - 1]
-                                        },
-                                        cache: false,
-                                        dataType: "json",
-                                        success: function(result) {
-                                            if (result.theme == "success") {
-                                                $('#p_success').html(success);
-                                                var title = "<b style='color: green;'>" + result.title + "</b> | " + result.message;
-                                                requestData(total, json, number + 1, value, success + 1, failed + 0);
-                                            } else {
-                                                $('#p_failed').html(failed);
-                                                var title = "<b style='color: red;'>" + result.title + "</b> | " + result.message;
-
-                                                //Json Failed
-                                                $.ajax({
-                                                    type: "POST",
-                                                    async: true,
-                                                    url: "<?= base_url('costing/inventory_rm/uploadcreateFailed') ?>",
-                                                    data: {
-                                                        data: json[number - 1],
-                                                        message: result.message
-                                                    },
-                                                    cache: false
-                                                });
-
-                                                requestData(total, json, number + 1, value, success + 0, failed + 1);
-                                            }
-
-                                            $("#p_remarks").append(title + "<br>");
-                                        },
-                                        fail: function(jqXHR, textStatus) {
-                                            if (textStatus == "error") {
-                                                Swal.fire({
-                                                    title: 'Connection Time Out, Check Your Connection',
-                                                    showConfirmButton: false,
-                                                    allowOutsideClick: false,
-                                                    allowEscapeKey: false,
-                                                    didOpen: () => {
-                                                        Swal.showLoading();
-                                                    },
-                                                });
-
-                                                setTimeout(function() {
-                                                    requestData(total, json, number, value, success + 0, failed + 0);
-                                                }, 5000);
-                                            }
-                                        }
-                                    });
-                                }
-                            }
-                        }
-                    });
-                }
-            }]
-        });
 
         $("#filter_item_family").combobox({
             url: '<?= base_url('costing/inventory_rm/readItemFamily') ?>',

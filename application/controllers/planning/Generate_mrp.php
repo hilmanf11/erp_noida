@@ -295,27 +295,270 @@ class Generate_mrp extends CI_Controller
         $filter_month = $post['filter_month'];
         $filter_year = $post['filter_year'];
         $filter_revision = $post['filter_revision'];
+        $filter_cutoff = !empty($post['filter_cutoff']) ? $post['filter_cutoff'] : $filter_year . "-" . $filter_month . "-25";
 
-        $this->db->select("b.*, 
-            COALESCE(c.mpq, 0) AS mpq, 
-            COALESCE(c.moq, 0) AS moq, 
-            COALESCE(c.leadtime, 0) AS leadtime, 
-            COALESCE(c.share_order, 0) AS share_order, 
-            d.number AS item_rm_number, 
+        $begin_month = date("Y-m-01", strtotime($filter_cutoff));
+        $last_month = date("Y-m-t", strtotime("-1 month", strtotime($filter_year . "-" . $filter_month . "-01")));
+        $month1 = date("Y-m-01", strtotime("-1 month", strtotime($filter_cutoff)));
+        $month3 = date("Y-m-01", strtotime("-3 month", strtotime($filter_cutoff)));
+
+        $period_1 = date("F Y", strtotime($filter_year . "-" . $filter_month . "-01"));
+        $period_2 = date("F Y", strtotime("+1 month", strtotime($filter_year . "-" . $filter_month . "-01")));
+        $period_3 = date("F Y", strtotime("+2 month", strtotime($filter_year . "-" . $filter_month . "-01")));
+        $period_4 = date("F Y", strtotime("+3 month", strtotime($filter_year . "-" . $filter_month . "-01")));
+        $period_5 = date("F Y", strtotime("+4 month", strtotime($filter_year . "-" . $filter_month . "-01")));
+        $period_6 = date("F Y", strtotime("+5 month", strtotime($filter_year . "-" . $filter_month . "-01")));
+
+        $sqlExceptionItems = "SELECT DISTINCT b.item_rm_id
+            FROM (SELECT item_fg_id, prod_plan FROM generate_mps_details WHERE prod_plan > 0 AND p_month = '$filter_month' AND p_year = '$filter_year' GROUP BY item_fg_id) a
+            JOIN bom b ON a.item_fg_id = b.item_fg_id
+            WHERE b.item_rm_id NOT IN (
+                SELECT item_rm_id FROM generate_mrp_finals 
+                WHERE p_month = '$filter_month' AND p_year = '$filter_year' AND revision = '$filter_revision' 
+                GROUP BY item_rm_id
+            )";
+        $exceptionItemsQuery = $this->db->query($sqlExceptionItems)->result_array();
+
+        if (empty($exceptionItemsQuery)) {
+            echo json_encode([
+                'total' => 0,
+                'rows' => [],
+                'periods' => [
+                    'p1' => $period_1, 'p2' => $period_2, 'p3' => $period_3,
+                    'p4' => $period_4, 'p5' => $period_5, 'p6' => $period_6
+                ]
+            ]);
+            return;
+        }
+
+        $item_ids = array();
+        foreach ($exceptionItemsQuery as $row) {
+            $item_ids[] = "'" . $this->db->escape_str($row['item_rm_id']) . "'";
+        }
+        $in_items = implode(",", $item_ids);
+
+        $sqlData = "SELECT 
+            d.id AS item_rm_id,
+            d.number AS item_rm_number,
             d.name AS item_rm_name,
-            d.hsn_code");
-        $this->db->from("(SELECT item_fg_id, prod_plan FROM generate_mps_details WHERE prod_plan > 0 AND p_month = '$filter_month' AND p_year = '$filter_year' GROUP BY item_fg_id) a");
-        $this->db->join('bom b', 'a.item_fg_id = b.item_fg_id');
-        $this->db->join('supplier_items c', "b.item_rm_id = c.item_rm_id", 'left');
-        $this->db->join('item_rm d', 'b.item_rm_id = d.id');
-        $this->db->where("b.item_rm_id NOT IN (SELECT item_rm_id FROM generate_mrp_finals WHERE p_month = '$filter_month' AND p_year = '$filter_year' AND revision = '$filter_revision' GROUP BY item_rm_id)");
-        $this->db->group_by('d.id');
-        $this->db->order_by('d.id', 'asc');
-        $records = $this->db->get()->result_array();
+            d.hsn_code,
+            fam.name AS product_family,
+            supp.id AS supplier_number,
+            supp.name AS supplier_name,
+            COALESCE(c.price, 0) AS price,
+            COALESCE(c.transit, 0) AS transit,
+            COALESCE(c.leadtime, 0) AS leadtime,
+            COALESCE(c.mpq, 0) AS mpq,
+            COALESCE(c.moq, 0) AS moq,
+            COALESCE(c.share_order, 0) AS share_order,
+            COALESCE(c.safety_stock, 0) AS safety_stock,
+            COALESCE(stock_rm.end_stock, 0) AS qty_rm,
+            COALESCE(stock_wip.balance, 0) AS raw_qty_wip,
+            COALESCE(stock_vendor.actual, 0) AS qty_vendor,
+            COALESCE(stock_gate.qty_balance, 0) AS qty_gate
+        FROM item_rm d
+        LEFT JOIN item_familys fam ON d.item_family_id = fam.id
+        LEFT JOIN supplier_items c ON d.id = c.item_rm_id
+        LEFT JOIN suppliers supp ON c.supplier_id = supp.id AND supp.status = 0
+        LEFT JOIN (
+            SELECT
+                a.id,
+                ((COALESCE(SUM(c.qty_sto_in),0) + COALESCE(dd.sto_qty_in, 0) + COALESCE(j.qty_rgp_in, 0) + COALESCE(e.qty_receipt, 0) + COALESCE(g.return_qty, 0)) - COALESCE(SUM(cc.qty_sto_out),0) - COALESCE(f.qty, 0) - COALESCE(d.sto_qty_out, 0) - COALESCE(k.qty_rgp_out, 0) - COALESCE(h.qty_reject, 0)) AS end_stock
+            FROM item_rm a 
+            JOIN item_familys b ON a.item_family_id = b.id AND b.number != '006'
+            LEFT JOIN (SELECT a.item_rm_id, COALESCE(SUM(b.qty), 0) AS qty_sto_in FROM os_rm a JOIN scan_item_receipts b ON a.id = b.receipt_id WHERE a.category = 'IN' and a.trans_date <= '$last_month' GROUP BY item_rm_id) c ON a.id = c.item_rm_id
+            LEFT JOIN (SELECT a.item_rm_id, COALESCE(SUM(b.qty), 0) AS qty_sto_out FROM os_rm a JOIN os_rm_labels b ON a.id = b.receipt_id WHERE a.category = 'OUT' and a.trans_date <= '$last_month' GROUP BY item_rm_id) cc ON a.id = cc.item_rm_id
+            LEFT JOIN (SELECT a.item_rm_id, COALESCE(SUM(a.qty), 0) as sto_qty_out FROM sto_rm a WHERE a.type = 'OUT' and a.trans_date <= '$last_month' and a.approved_to = '' GROUP BY item_rm_id) d ON a.id = d.item_rm_id
+            LEFT JOIN (SELECT a.item_rm_id, COALESCE(SUM(a.qty), 0) as sto_qty_in FROM sto_rm a WHERE a.type = 'IN' and a.trans_date <= '$last_month' and a.approved_to = '' GROUP BY item_rm_id) dd ON a.id = dd.item_rm_id
+            LEFT JOIN (SELECT a.item_rm_id, COALESCE(SUM(b.qty), 0) AS qty_receipt FROM purchase_order_receipts a JOIN scan_item_receipts b ON a.receipt_id = b.receipt_id WHERE DATE_FORMAT(b.created_date, '%Y-%m-%d') <= '$last_month' GROUP BY item_rm_id) e ON a.id = e.item_rm_id
+            LEFT JOIN (SELECT item_rm_id, COALESCE(SUM(qty), 0) AS qty FROM issued_material_details WHERE DATE_FORMAT(created_date, '%Y-%m-%d') <= '$last_month' GROUP BY item_rm_id) f ON a.id = f.item_rm_id
+            LEFT JOIN (SELECT a.item_rm_id, COALESCE(SUM(b.qty), 0) AS qty_reject FROM purchase_order_receipts a JOIN scan_item_rejections b ON a.receipt_id = b.receipt_id WHERE DATE_FORMAT(b.created_date, '%Y-%m-%d') <= '$last_month' GROUP BY item_rm_id) h ON a.id = h.item_rm_id
+            LEFT JOIN (SELECT a.item_id, COALESCE(SUM(b.qty), 0) as qty_rgp_in FROM rgp_transactions a JOIN scan_item_rgp b ON a.number = b.rgp_number and a.item_id = b.item_id WHERE a.type = 'IN' and DATE_FORMAT(b.created_date, '%Y-%m-%d') <= '$last_month' GROUP BY a.item_id) j ON a.id = j.item_id
+            LEFT JOIN (SELECT a.item_id, COALESCE(SUM(b.qty), 0) as qty_rgp_out FROM rgp_transactions a JOIN scan_item_rgp b ON a.number = b.rgp_number and a.item_id = b.item_id WHERE a.type = 'OUT' and DATE_FORMAT(b.created_date, '%Y-%m-%d') <= '$last_month' GROUP BY a.item_id) k ON a.id = k.item_id
+            LEFT JOIN (SELECT a.item_rm_id, SUM(c.qty) AS return_qty
+                FROM return_materials a 
+                JOIN return_material_labels b ON a.return_id = b.return_id
+                JOIN scan_item_receipts c ON a.return_id = c.receipt_id AND b.label_no = c.label_no
+                WHERE a.return_date <= '$last_month'
+                GROUP BY a.item_rm_id) g ON a.id = g.item_rm_id
+            WHERE a.id IN ($in_items)
+            GROUP BY a.id
+        ) stock_rm ON d.id = stock_rm.id
+        LEFT JOIN (
+            SELECT z.id, SUM(z.begin_stock) AS actual FROM (
+                SELECT a.id, b.po_no, (COALESCE(SUM(b.qty), 0) - COALESCE(c.qty_receipt, 0)) AS begin_stock
+                FROM item_rm a
+                JOIN purchase_orders b ON a.id = b.item_rm_id
+                LEFT JOIN (SELECT item_rm_id, po_no, SUM(qty_receipt) AS qty_receipt FROM purchase_order_receipts WHERE status != '2' GROUP BY item_rm_id, po_no) c ON a.id = c.item_rm_id AND b.po_no = c.po_no
+                WHERE b.status = 0 AND a.id IN ($in_items)
+                GROUP BY a.id, b.po_no) z
+            GROUP BY z.id
+        ) stock_vendor ON d.id = stock_vendor.id
+        LEFT JOIN (
+            SELECT a.item_rm_id, (COALESCE(b.issued, 0) - SUM(a.total)) AS balance FROM (
+                SELECT b.item_rm_id, a.item_fg_id, SUM(a.qty), b.composition, (SUM(a.qty) * b.composition) AS total
+                FROM production_schedules a
+                JOIN bom b ON a.item_fg_id = b.item_fg_id
+                WHERE a.trans_date BETWEEN '$month1' AND '$last_month' AND b.item_rm_id IN ($in_items)
+                GROUP BY a.item_fg_id, b.item_rm_id) a
+            LEFT JOIN (SELECT item_rm_id, SUM(qty) AS issued FROM issued_material_details WHERE DATE_FORMAT(created_date, '%Y-%m-%d') BETWEEN '$month1' AND '$last_month' and request_no NOT LIKE '%PR-%' AND item_rm_id IN ($in_items) GROUP BY item_rm_id) b ON a.item_rm_id = b.item_rm_id
+            GROUP BY a.item_rm_id
+        ) stock_wip ON d.id = stock_wip.item_rm_id
+        LEFT JOIN (
+            SELECT item_rm_id, SUM(qty_receipt) AS qty_balance
+            FROM purchase_order_receipts
+            WHERE receipt_date BETWEEN '$begin_month' AND '$filter_cutoff' AND status != 2 AND item_rm_id IN ($in_items)
+            GROUP BY item_rm_id
+        ) stock_gate ON d.id = stock_gate.item_rm_id
+        WHERE d.id IN ($in_items)
+        GROUP BY d.id
+        ORDER BY d.id ASC";
 
-        $result['total'] = count($records);
-        $result = array_merge($result, ['rows' => $records]);
-        echo json_encode($result);
+        $records = $this->db->query($sqlData)->result_array();
+
+        $mrpNeeds = $this->db->query("SELECT item_rm_id, period, SUM(qty) as need 
+            FROM generate_mrp 
+            WHERE item_rm_id IN ($in_items) AND p_month = '$filter_month' AND p_year = '$filter_year' AND revision = '$filter_revision'
+            GROUP BY item_rm_id, period
+            ORDER BY period ASC")->result_array();
+
+        $needsMap = array();
+        if (!empty($mrpNeeds)) {
+            foreach ($mrpNeeds as $row) {
+                $needsMap[$row['item_rm_id']][] = floatval($row['need']);
+            }
+        } else {
+            $mpsNeeds = $this->db->query("SELECT b.item_rm_id, a.ltpp_month2 as period, ROUND(SUM(a.prod_plan * b.composition), 2) as need
+                FROM generate_mps_details a
+                JOIN bom b ON a.item_fg_id = b.item_fg_id
+                WHERE b.item_rm_id IN ($in_items) AND a.p_month = '$filter_month' AND a.p_year = '$filter_year' AND a.revision = 0
+                GROUP BY b.item_rm_id, a.ltpp_month2
+                ORDER BY a.ltpp_month2 ASC")->result_array();
+            foreach ($mpsNeeds as $row) {
+                $needsMap[$row['item_rm_id']][] = floatval($row['need']);
+            }
+        }
+
+        $rows = array();
+        foreach ($records as $item) {
+            $item_id = $item['item_rm_id'];
+            $item_needs = isset($needsMap[$item_id]) ? $needsMap[$item_id] : array();
+
+            $need_1 = isset($item_needs[0]) ? $item_needs[0] : 0;
+            $need_2 = isset($item_needs[1]) ? $item_needs[1] : 0;
+            $need_3 = isset($item_needs[2]) ? $item_needs[2] : 0;
+            $need_4 = isset($item_needs[3]) ? $item_needs[3] : 0;
+            $need_5 = isset($item_needs[4]) ? $item_needs[4] : 0;
+            $need_6 = isset($item_needs[5]) ? $item_needs[5] : 0;
+
+            $raw_wip = floatval($item['raw_qty_wip']);
+            if ($raw_wip > 0) {
+                $qty_wip = $raw_wip;
+                $qty_supply = 0;
+            } else {
+                $qty_wip = 0;
+                $qty_supply = abs(round($raw_wip));
+            }
+
+            $qty_rm = floatval($item['qty_rm']);
+            $qty_vendor = floatval($item['qty_vendor']);
+            $qty_gate = floatval($item['qty_gate']);
+            $total_stock = ($qty_rm + $qty_wip + $qty_vendor + $qty_gate);
+            $total_wo = ($qty_supply + 0);
+
+            $need_11 = ($filter_revision == 0) ? $need_1 : 0;
+            $balance_1 = ($total_stock - ($total_wo + $need_11));
+            $balance_2 = ($balance_1 - $need_2);
+            $balance_3 = ($balance_2 - $need_3);
+            $balance_4 = ($balance_3 - $need_4);
+            $balance_5 = ($balance_4 - $need_5);
+            $balance_6 = ($balance_5 - $need_6);
+
+            $avg_need = round(($need_1 + $need_2 + $need_3 + $need_4 + $need_5 + $need_6) / 6);
+            $avg_balance = ($balance_6 - $avg_need);
+
+            if ($balance_6 < 0) {
+                $total_need = abs($balance_6);
+            } else {
+                $total_need = 0;
+            }
+
+            // Exception Reason Diagnosis
+            $remarks = array();
+            if (empty($item['supplier_number']) && empty($item['supplier_name'])) {
+                $remarks[] = "Not registered in Supplier Items";
+            } else {
+                if (floatval($item['moq']) <= 0) {
+                    $remarks[] = "MOQ is 0";
+                }
+                if (floatval($item['mpq']) <= 0) {
+                    $remarks[] = "MPQ is 0";
+                }
+                if (floatval($item['leadtime']) <= 0) {
+                    $remarks[] = "Lead time is 0";
+                }
+                if (floatval($item['share_order']) <= 0) {
+                    $remarks[] = "Share Order is 0%";
+                }
+            }
+            if ($item['hsn_code'] == '-' || empty($item['hsn_code'])) {
+                $remarks[] = "Invalid HSN Code";
+            }
+            if (empty($remarks)) {
+                $remarks[] = "Not in MRP Finals";
+            }
+
+            $rows[] = array(
+                'item_rm_id' => $item['item_rm_id'],
+                'item_rm_number' => $item['item_rm_number'],
+                'item_rm_name' => $item['item_rm_name'],
+                'hsn_code' => $item['hsn_code'],
+                'product_family' => !empty($item['product_family']) ? $item['product_family'] : '-',
+                'supplier_number' => !empty($item['supplier_number']) ? $item['supplier_number'] : '-',
+                'supplier_name' => !empty($item['supplier_name']) ? $item['supplier_name'] : 'NOT REGISTERED',
+                'price' => number_format(floatval($item['price']), 2),
+                'leadtime' => round(floatval($item['leadtime'])),
+                'mpq' => round(floatval($item['mpq'])),
+                'moq' => round(floatval($item['moq'])),
+                'share_order' => round(floatval($item['share_order'])),
+                'qty_rm' => round($qty_rm),
+                'qty_wip' => round($qty_wip),
+                'qty_vendor' => round($qty_vendor),
+                'qty_gate' => round($qty_gate),
+                'total_stock' => round($total_stock),
+                'qty_supply' => round($qty_supply),
+                'total_wo' => round($total_wo),
+                'need_1' => round($need_1),
+                'balance_1' => round($balance_1),
+                'need_2' => round($need_2),
+                'balance_2' => round($balance_2),
+                'need_3' => round($need_3),
+                'balance_3' => round($balance_3),
+                'need_4' => round($need_4),
+                'balance_4' => round($balance_4),
+                'need_5' => round($need_5),
+                'balance_5' => round($balance_5),
+                'need_6' => round($need_6),
+                'balance_6' => round($balance_6),
+                'avg_need' => round($avg_need),
+                'avg_balance' => round($avg_balance),
+                'total_need' => round($total_need),
+                'exception_remark' => implode(", ", $remarks)
+            );
+        }
+
+        echo json_encode(array(
+            'total' => count($rows),
+            'rows' => $rows,
+            'periods' => array(
+                'p1' => $period_1,
+                'p2' => $period_2,
+                'p3' => $period_3,
+                'p4' => $period_4,
+                'p5' => $period_5,
+                'p6' => $period_6
+            )
+        ));
     }
 
     public function getDataMpp($filter_month, $filter_year, $filter_cutoff, $item_rm_id, $type)

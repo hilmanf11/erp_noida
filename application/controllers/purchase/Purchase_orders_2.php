@@ -54,12 +54,12 @@ class purchase_orders_2 extends CI_Controller
         $records = $this->db->get()->result_object();
         echo json_encode($records);
     }
-    
+
     public function readPono()
     {
         $post = isset($_POST['q']) ? $_POST['q'] : "";
         $supplier_id = base64_decode($this->input->get('supplier_id'));
-        
+
         $this->db->select('a.po_no, a.po_date, d.name as po_name');
         $this->db->from('purchase_order_others a');
         $this->db->join('suppliers b', 'a.supplier_id = b.id');
@@ -77,7 +77,7 @@ class purchase_orders_2 extends CI_Controller
     public function readPrno()
     {
         $supplier_id = base64_decode($this->input->get('supplier_id'));
-        
+
         $this->db->select('a.request_no');
         $this->db->from('purchase_order_others a');
         $this->db->join('suppliers b', 'a.supplier_id = b.id');
@@ -103,42 +103,43 @@ class purchase_orders_2 extends CI_Controller
         echo json_encode($records);
     }
 
-    public function request_no($id_menu, $add = "", $trans_date = ""){
-        if($trans_date == ""){
+    public function request_no($id_menu, $add = "", $trans_date = "")
+    {
+        if ($trans_date == "") {
             $datenow = date("Y-m-d");
-        }else{
+        } else {
             $datenow = base64_decode($trans_date);
         }
 
         $sql_menu = $this->db->query("SELECT * FROM menus_no WHERE menus_id = '$id_menu' and `status` = '0' and `start_date` <= '$datenow' and end_date >= '$datenow'");
         $row_menu = $sql_menu->row();
 
-        if(@$row_menu->number == ""){
+        if (@$row_menu->number == "") {
             //
-        }else{
+        } else {
             $number = @$row_menu->number;
             $yearnow = date("y", strtotime($row_menu->start_date));
             $yearend = date("y", strtotime($row_menu->end_date));
 
-            $whereDate = $number.$yearnow.$yearend."1";
+            $whereDate = $number . $yearnow . $yearend . "1";
 
-            $sqlGetID	= $this->db->query("SELECT max(po_no) as kode FROM purchase_order_others WHERE po_no like '%$whereDate%'");
+            $sqlGetID    = $this->db->query("SELECT max(po_no) as kode FROM purchase_order_others WHERE po_no like '%$whereDate%'");
             $rowID = $sqlGetID->row();
             $kode = $rowID->kode;
-            
+
             if ($kode == NULL) {
-                $autoID = sprintf("%0".$row_menu->sequence."s", $kode + 1);
-                $autoNo = $whereDate.$autoID;
+                $autoID = sprintf("%0" . $row_menu->sequence . "s", $kode + 1);
+                $autoNo = $whereDate . $autoID;
             } else {
                 $urutan = (int) substr($kode, -6);
                 $urutan++;
-                $autoID	= sprintf("%0".$row_menu->sequence."s", $urutan);
-                $autoNo = $whereDate.$autoID;
+                $autoID    = sprintf("%0" . $row_menu->sequence . "s", $urutan);
+                $autoNo = $whereDate . $autoID;
             }
 
-            if($add == ""){
+            if ($add == "") {
                 return $autoNo;
-            }else{
+            } else {
                 die(json_encode(array("code" => $autoNo)));
             }
         }
@@ -149,6 +150,24 @@ class purchase_orders_2 extends CI_Controller
         $po_no = $this->input->post('po_no');
         $send = $this->crud->read('purchase_order_others', [], ["po_no" => $po_no]);
         echo json_encode($send);
+    }
+
+    public function checkSupplier()
+    {
+        if ($this->input->post()) {
+            $supplier_id = $this->input->post('supplier_id');
+            $supplier = $this->crud->read("suppliers", [], ["id" => $supplier_id]);
+
+            if (($supplier->approved_to != "" || $supplier->approved_to != null)) {
+                die(json_encode(array("title" => "Failed", "message" => "Supplier still on process approvals", "theme" => "error")));
+            } elseif ($supplier->incoterm == "") {
+                die(json_encode(array("title" => "Failed", "message" => "Incoterm empty, please check in master supplier", "theme" => "error")));
+            } elseif ($supplier->terms == "") {
+                die(json_encode(array("title" => "Failed", "message" => "Terms Condition empty, please check in master supplier", "theme" => "error")));
+            } else {
+                die(json_encode(array("title" => "Ok", "message" => "Completed", "theme" => "success")));
+            }
+        }
     }
 
     public function datatables()
@@ -206,16 +225,16 @@ class purchase_orders_2 extends CI_Controller
                     $this->db->where('a.po_date >=', $filter_from);
                     $this->db->where('a.po_date <=', $filter_to);
                 }
-                if($filter_po_no != ""){
+                if ($filter_po_no != "") {
                     $this->db->where('a.po_no', $filter_po_no);
                 }
-                if($filter_pr_no != ""){
+                if ($filter_pr_no != "") {
                     $this->db->where('a.request_no', $filter_pr_no);
                 }
-                if($filter_suppliers != ""){
+                if ($filter_suppliers != "") {
                     $this->db->where('d.id', $filter_suppliers);
                 }
-                if($filter_item_no != ""){
+                if ($filter_item_no != "") {
                     $this->db->where('b.id', $filter_item_no);
                 }
                 $this->db->group_by('a.po_no');
@@ -269,6 +288,8 @@ class purchase_orders_2 extends CI_Controller
                     a.price, 
                     (CASE WHEN h.po_no is not null THEN 1 ELSE 0 END) as status_pi,
                     a.status,
+                    COALESCE(j.qty_receipt, 0) as por_qty,
+                    a.qty as bf_qty,
                     (a.qty * a.price) as total_price');
                 $this->db->from('purchase_order_others a');
                 $this->db->join('item_rm b', 'a.item_rm_id = b.id');
@@ -277,15 +298,16 @@ class purchase_orders_2 extends CI_Controller
                 $this->db->join('supplier_items e', 'a.item_rm_id = e.item_rm_id and a.supplier_id = e.supplier_id');
                 $this->db->join('purchase_invoices h', 'a.item_rm_id = h.item_rm_id and a.po_no = h.po_no', 'left');
                 $this->db->join('purchase_order_receipt_others i', 'a.item_rm_id = i.item_rm_id and a.po_no = i.po_no', 'left');
+                $this->db->join("(SELECT item_rm_id, po_no, SUM(delivery) AS qty_receipt FROM purchase_confirm_others WHERE status != '2' GROUP BY item_rm_id, po_no) j", 'a.po_no = j.po_no and a.item_rm_id = j.item_rm_id', 'left');
                 $this->db->where('a.deleted', 0);
                 if ($filter_from != "" or $filter_to != "") {
                     $this->db->where('a.po_date >=', $filter_from);
                     $this->db->where('a.po_date <=', $filter_to);
                 }
-                if($filter_pr_no != ""){
+                if ($filter_pr_no != "") {
                     $this->db->where('a.request_no', $filter_pr_no);
                 }
-                if($filter_item_no != ""){
+                if ($filter_item_no != "") {
                     $this->db->where('b.id', $filter_item_no);
                 }
                 $this->db->like('a.po_no', $id);
@@ -299,7 +321,8 @@ class purchase_orders_2 extends CI_Controller
         }
     }
 
-    public function changePrice(){
+    public function changePrice()
+    {
         $id = $this->input->post("id");
         $po = $this->crud->read("purchase_order_others", [], ["id" => $id]);
 
@@ -314,15 +337,16 @@ class purchase_orders_2 extends CI_Controller
             if ($this->form_validation->run() == TRUE) {
                 $post = $this->input->post();
                 $purchaseOrder = $this->crud->read('purchase_order_others', [], ["request_no" => $post['request_no'], "item_rm_id" => $post['item_rm_id']]);
+                $supplier = $this->crud->read("suppliers", [], ["id" => $post['supplier_id']]);
 
-                if(empty($purchaseOrder)){
-                    $send = $this->crud->create('purchase_order_others', $post);
+                if (empty($purchaseOrder)) {
+                    $send = $this->crud->create('purchase_order_others', array_merge($post, ["terms" => $supplier->terms, "incoterm" => $supplier->incoterm, "payment_term" => $supplier->payment_term]));
 
                     $this->db->where('request_no', $post['request_no']);
                     $this->db->where('item_rm_id', $post['item_rm_id']);
                     $this->db->update("purchase_request_others", ["status" => 1]);
                     echo $send;
-                }else{
+                } else {
                     show_error('Duplicate');
                 }
             } else {
@@ -339,20 +363,31 @@ class purchase_orders_2 extends CI_Controller
             $post = $this->input->post();
             $id = $this->input->post('id');
 
-            if($id != ""){
-                $this->db->update('purchase_order_others', [
-                    "qty" => $post['qty'],
-                    "price" => $post['price'],
-                    "total" => $post['total'],
-                    "delivery_date" => $post['delivery_date'],
-                    "remarks" => $post['remarks'],
-                    "revision" => ($post['revision'] + 1)
-                ], ["id" => $id]);
-    
-                // $this->db->update('purchase_order_others', ["qty" => $post['qty']], ["request_no" => $post['request_no'], "item_rm_id" => $post['item_rm_id']]);
-    
-                echo json_encode(array("title" => "Good Job", "message" => "Update Prices Successfully", "theme" => "success"));
-            }else{
+            if ($id != "") {
+                if ($post['qty'] > $post['bf_qty']) {
+                    $this->crud->update('purchase_order_others', ["id" => $id], [
+                        "qty" => $post['qty'],
+                        "price" => $post['price'],
+                        "total" => $post['total'],
+                        "delivery_date" => $post['delivery_date'],
+                        "remarks" => $post['remarks'],
+                        "revision" => ($post['revision'] + 1)
+                    ]);
+
+                    echo json_encode(array("title" => "Good Job", "message" => "Update Prices Successfully", "theme" => "success"));
+                } else {
+                    $this->db->update('purchase_order_others', [
+                        "qty" => $post['qty'],
+                        "price" => $post['price'],
+                        "total" => $post['total'],
+                        "delivery_date" => $post['delivery_date'],
+                        "remarks" => $post['remarks'],
+                        "revision" => ($post['revision'] + 1)
+                    ], ["id" => $id]);
+
+                    echo json_encode(array("title" => "Good Job", "message" => "Update Prices Successfully", "theme" => "success"));
+                }
+            } else {
                 show_error("Cannot Process your request");
             }
         } else {
@@ -390,7 +425,7 @@ class purchase_orders_2 extends CI_Controller
         $update = $this->crud->update('purchase_requests', ["request_no" => $data['request_no'], "item_rm_id" => $data['item_rm_id']], ["status" => 0]);
         echo $send;
     }
-    
+
     public function print_po($po_no, $export = "")
     {
         $purchase_order_others_total = $this->crud->reads('purchase_order_others', [], ["po_no" => base64_decode($po_no)]);
@@ -399,11 +434,11 @@ class purchase_orders_2 extends CI_Controller
         $approval = $this->crud->read('approvals', [], ["table_name" => "purchase_order_others"]);
 
         $user_3 = $this->crud->read('users', [], ["username" => @$approval->user_approval_1]);
-        
+
         $qr_user_3 = "";
-        
-        if($purchase_order_others->approved == 2){
-            $qr_user_3 = "src='" .base_url('assets/image/qrcode/' . @$user_3->name . '.png')."'";
+
+        if ($purchase_order_others->approved == 2) {
+            $qr_user_3 = "src='" . base_url('assets/image/qrcode/' . @$user_3->name . '.png') . "'";
         }
 
         // $month_1 =  date('M Y', strtotime('+1 month', strtotime(@$purchase_order_others->po_date)));
@@ -435,7 +470,7 @@ class purchase_orders_2 extends CI_Controller
                             <h1>Press CTRL + P for Print</h1>
                         </center>
                     </div>';
-        
+
 
         $html = '<html>
                     <head>
@@ -458,10 +493,10 @@ class purchase_orders_2 extends CI_Controller
                             padding-bottom: 2px;
                             text-align: center;color: black;
                         }
-                        '.$media.'
+                        ' . $media . '
                     </style>
                     <body>
-                        '.$media2.'
+                        ' . $media2 . '
                         <div class="print">';
         //Loop Page
         $no = 1;
@@ -524,7 +559,7 @@ class purchase_orders_2 extends CI_Controller
                                         <tr>
                                             <td width="20" style="vertical-align: top;"><b>To</b></td>
                                             <td width="5" style="vertical-align: top;">:</td>
-                                            <td><b>' . @$supplier->name . '</b><br>'.@$supplier->address.'<br>GST No : '.@$supplier->gst.'</td>
+                                            <td><b>' . @$supplier->name . '</b><br>' . @$supplier->address . '<br>GST No : ' . @$supplier->gst . '</td>
                                         </tr>
                                     </table>
                                 </div>
@@ -540,8 +575,8 @@ class purchase_orders_2 extends CI_Controller
                                                 Revision : ' . $purchase_order_others->revision . '<br><br>
                                                 <b>ELCON BANSHU WIRING SYSTEM PVT. LTD.</b><br>
                                                 Factory / Shipping Address : <br>
-                                                '.@$config->address2.'<br>
-                                                GST No : '.@$config->gst_no.'
+                                                ' . @$config->address2 . '<br>
+                                                GST No : ' . @$config->gst_no . '
                                             </td>
                                         </tr>
                                     </table>
@@ -569,7 +604,7 @@ class purchase_orders_2 extends CI_Controller
             foreach ($records as $record) {
                 $subtotal += ($record['total']);
 
-                if($record['state'] == $config->state){
+                if ($record['state'] == $config->state) {
                     $total2 = ($record['total'] + $record['dcgst'] + $record['dsgst']);
                     $total_igst += 0;
                     $total_cgst += $record['dcgst'];
@@ -577,8 +612,8 @@ class purchase_orders_2 extends CI_Controller
                     $digst = 0;
                     $dsgst = $record['dsgst'];
                     $dcgst = $record['dcgst'];
-                }else{
-                    if($record['type'] == "LOCAL"){
+                } else {
+                    if ($record['type'] == "LOCAL") {
                         $total2 = ($record['total'] + $record['digst']);
                         $total_igst += $record['digst'];
                         $total_cgst += 0;
@@ -586,7 +621,7 @@ class purchase_orders_2 extends CI_Controller
                         $digst = $record['digst'];
                         $dsgst = 0;
                         $dcgst = 0;
-                    }else{
+                    } else {
                         $total2 = ($record['total']);
                         $total_igst += 0;
                         $total_cgst += 0;
@@ -597,19 +632,19 @@ class purchase_orders_2 extends CI_Controller
                     }
                 }
 
-                if(!empty($record['reason'])){
+                if (!empty($record['reason'])) {
                     $styles = "background:#FFDD9E;";
-                }else{
+                } else {
                     $styles = "";
                 }
 
-                if($record['currency'] == "INR"){
+                if ($record['currency'] == "INR") {
                     $digit = 4;
-                }else{
+                } else {
                     $digit = 5;
                 }
-                
-                $html .= '  <tr style="'.$styles.'">
+
+                $html .= '  <tr style="' . $styles . '">
                                 <td  style="text-align:center;">' . $no . '</td>
                                 <td>' . $record['item_rm_id'] . '</td>
                                 <td>' . $record['item_rm_number'] . '</td>
@@ -660,27 +695,29 @@ class purchase_orders_2 extends CI_Controller
             } else {
                 $html .= '</table>';
             }
-            
+
             if (($i + 1) == $page) {
                 $html .= '  <div style="width:100%">
                                 <div style="width:70%; float:left;">
                                     <br><br>
                                     <div style="font-size:12px !important;">
                                         <b style="font-size:16px !important;">Term & Condition</b><br><br>
-                                        '.$purchase_order_others->terms.'
+                                        <b style="font-size:16px !important;">Payment Term : ' . $purchase_order_others->payment_term . ' Days</b><br> 
+                                        <b style="font-size:16px !important;">Incoterm : ' . $purchase_order_others->incoterm . '</b><br><br>
+                                        ' . $purchase_order_others->terms . '
                                     </div>
                                 </div>
                                 <div style="width:30%; float:left; right: 50px;">
                                     <br><br><br>
                                     <table style="margin-top:20px; font-size:12px;">
                                         <tr>
-                                            <th colspan="2" width="800" style="text-align:left;">'.$config->name.'</th>
+                                            <th colspan="2" width="800" style="text-align:left;">' . $config->name . '</th>
                                         </tr>
                                         <tr>
-                                            <th style="height:80px; text-align:left;"><img '.$qr_user_3.' width="80"/></th>
+                                            <th style="height:80px; text-align:left;"><img ' . $qr_user_3 . ' width="80"/></th>
                                         </tr>
                                         <tr>
-                                            <th style="height:20px; text-align:left;">Authorized Signatory <br>'.$user_3->name.'</th>
+                                            <th style="height:20px; text-align:left;">Authorized Signatory <br>' . $user_3->name . '</th>
                                         </tr>
                                     </table>
                                     <br>
@@ -688,7 +725,7 @@ class purchase_orders_2 extends CI_Controller
                             </div>
                         </div>
                     </div>';
-            }else{
+            } else {
                 $html .= "</div></div>";
             }
 
@@ -697,7 +734,7 @@ class purchase_orders_2 extends CI_Controller
             }
             $hal++;
         }
-        
+
         $html .= '<script>window.print()</script>';
         die($html);
     }
@@ -802,12 +839,12 @@ class purchase_orders_2 extends CI_Controller
                 $status = "CLOSED";
             }
 
-            if($data['approved_to'] == ""){
+            if ($data['approved_to'] == "") {
                 $approved = "APPROVED";
-            }else{
+            } else {
                 $approved = "CHECKING";
             }
-            
+
             $html .= '<tr>
                         <td style="text-align:center">' . $no . '</td>
                         <td>' . $approved . '</td>

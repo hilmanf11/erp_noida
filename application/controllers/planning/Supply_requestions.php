@@ -55,33 +55,33 @@ class Supply_requestions extends CI_Controller
         $sql_menu = $this->db->query("SELECT * FROM menus_no WHERE menus_id = '$id_menu' and `status` = '0' and `start_date` <= '$datenow' and end_date >= '$datenow'");
         $row_menu = $sql_menu->row();
 
-        if (@$row_menu->number == "") {
+        if(@$row_menu->number == ""){
             //
-        } else {
+        }else{
             $number = @$row_menu->number;
             $yearnow = date("y", strtotime($row_menu->start_date));
             $yearend = date("y", strtotime($row_menu->end_date));
 
-            $whereDate = $number . $yearnow . $yearend . "1";
+            $whereDate = $number.$yearnow.$yearend."1";
 
-            $sqlGetID    = $this->db->query("SELECT max(request_no) as kode FROM supply_requestions WHERE request_no like '%$whereDate%'");
+            $sqlGetID	= $this->db->query("SELECT max(request_no) as kode FROM supply_requestions WHERE request_no like '%$whereDate%'");
             $rowID = $sqlGetID->row();
             $kode = $rowID->kode;
-
+            
             if ($kode == NULL) {
-                $autoID = sprintf("%0" . $row_menu->sequence . "s", $kode + 1);
-                $autoNo = $whereDate . $autoID;
+                $autoID = sprintf("%0".$row_menu->sequence."s", $kode + 1);
+                $autoNo = $whereDate.$autoID;
             } else {
                 $urutan = (int) substr($kode, -6);
                 $urutan++;
-                $autoID    = sprintf("%0" . $row_menu->sequence . "s", $urutan);
-                $autoNo = $whereDate . $autoID;
+                $autoID	= sprintf("%0".$row_menu->sequence."s", $urutan);
+                $autoNo = $whereDate.$autoID;
             }
 
             echo $autoNo;
         }
     }
-
+    
     public function datatables()
     {
         if ($this->input->post()) {
@@ -100,7 +100,7 @@ class Supply_requestions extends CI_Controller
                 //Select Query
                 $this->db->select('a.*, e.number as item_number, e.number_customer as item_name, e.uom');
                 $this->db->from('supply_requestions a');
-                $this->db->join('item_fg e', 'a.item_fg_id = e.id', 'left');
+                $this->db->join('item_fg e', 'a.item_fg_id = e.id','left');
                 $this->db->where('a.deleted', 0);
                 $this->db->where('a.status', 0);
                 $this->db->like("a.period", $filter_period);
@@ -172,15 +172,14 @@ class Supply_requestions extends CI_Controller
         }
     }
 
-    function datatablesTemp()
-    {
+    function datatablesTemp(){
         $scrap_no = $this->input->get('scrap_no');
 
         //Select Query
         $this->db->select('a.*, b.number as item_rm_number, b.name as item_rm_name');
         $this->db->from('scraps a');
         $this->db->join('item_rm b', 'a.item_rm_id = b.id');
-        $this->db->where("(a.approved_to = '' or a.approved_to is null)");
+        $this->db->where('a.deleted', 0);
         $this->db->where('a.document', $scrap_no);
         $totalRows = $this->db->count_all_results('', false);
         $records = $this->db->get()->result_object();

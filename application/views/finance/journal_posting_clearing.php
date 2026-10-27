@@ -241,6 +241,7 @@
 <!-- PDF -->
 <iframe id="printout" src="<?= base_url('finance/journal_posting_clearing/print') ?>" style="width: 100%;" hidden></iframe>
 <script>
+
     //Add Data
     function add() {
         $('#dlg_insert').dialog('open');
@@ -256,7 +257,7 @@
         $("#company_id").combogrid('enable');
         $("#document_no").combogrid('enable');
         $("#number").textbox('enable');
-
+        
         $("#modul").textbox('setValue', "CLEARING");
         $("#journal_date").datebox('setValue', "<?= date("Y-m-d") ?>");
 
@@ -283,10 +284,10 @@
             url: "<?= base_url('finance/journal_posting_clearing/number/') ?>" + id_menu + "/" + btoa(journal_date),
             dataType: "html",
             success: function(result) {
-                if (result == "") {
+                if(result == ""){
                     toastr.info("Please Check Configuration in Serial No First");
                     $("#number").textbox('clear');
-                } else {
+                }else{
                     $("#number").textbox('setValue', result);
                 }
             }
@@ -324,12 +325,12 @@
     function append() {
         var document_no = $("#document_no").combogrid('getValue');
 
-        if (document_no != "") {
+        if(document_no != ""){
             if (endEditing()) {
                 var rows = $('#dg2').datagrid('getRows');
                 var totalrows = rows.length;
 
-                if (totalrows == 0) {
+                if(totalrows == 0){
                     toastr.error("No Data for the Clearing Adjustment");
                     return false;
                 }
@@ -373,7 +374,7 @@
                     panelHeight: 200,
                     idField: 'account_number',
                     textField: 'name',
-                    mode: 'remote',
+                    mode: 'remote', 
                     fitColumns: true,
                     prompt: 'Choose Account No',
                     columns: [
@@ -381,13 +382,13 @@
                             field: 'account_number',
                             title: 'Code',
                             width: 100
-                        }, {
+                        },{
                             field: 'account_name',
                             title: 'Name',
                             width: 250
                         }]
                     ],
-                    onLoadSuccess: function() {
+                    onLoadSuccess: function(){
                         $(ed.target).combogrid('setValue', account_number);
                     },
                     onSelect: function(value, rows) {
@@ -403,7 +404,7 @@
                     }
                 });
             }
-        } else {
+        }else{
             toastr.warning("Please Select Document No");
         }
     }
@@ -414,9 +415,9 @@
             var c = '<a href="javascript:void(0)" class="btn btn-danger btn-sm" style="pointer-events:auto; opacity:1;" onclick="cancelrow(this)">Cancel</a>';
             return s + c;
         } else {
-            if (row.currency != "TOTAL") {
+            if(row.currency != "TOTAL"){
                 var e = '<a href="javascript:void(0)" class="btn btn-primary btn-sm" style="pointer-events:auto; opacity:1;" onclick="editrow(this)">Edit</a> ';
-                var d = '<a href="javascript:void(0)" class="btn btn-danger btn-sm" style="pointer-events:auto; opacity:1;" onclick="deleterow(this, ' + row.id + ')">Delete</a>';
+                var d = '<a href="javascript:void(0)" class="btn btn-danger btn-sm" style="pointer-events:auto; opacity:1;" onclick="deleterow(this, '+row.id+')">Delete</a>';
 
                 return e + d;
             }
@@ -439,7 +440,7 @@
 
         var row = $('#dg2').datagrid('getSelected');
 
-        if (row.source != "MN") {
+        if(row.source != "MN"){
             var ed = $('#dg2').datagrid('getEditor', {
                 index: rowIndex,
                 field: 'document_no'
@@ -465,28 +466,18 @@
                 field: 'account_number'
             });
 
-            $(ed.target).textbox({
-                "readonly": true
-            });
-            $(ed2.target).textbox({
-                "readonly": true
-            });
-            $(ed3.target).textbox({
-                "readonly": true
-            });
-            $(ed4.target).textbox({
-                "readonly": true
-            });
-            $(ed5.target).combogrid({
-                "readonly": true
-            });
+            $(ed.target).textbox({"readonly":true});
+            $(ed2.target).textbox({"readonly":true});
+            $(ed3.target).textbox({"readonly":true});
+            $(ed4.target).textbox({"readonly":true});
+            $(ed5.target).combogrid({"readonly":true});
             $(ed5.target).combogrid('setValue', row.account_number);
-        } else {
+        }else{
             var ed = $('#dg2').datagrid('getEditor', {
                 index: editIndex,
                 field: 'account_number'
             });
-
+            
             var urls = '<?= base_url('finance/account_coa/reads') ?>';
             $(ed.target).combogrid({
                 url: urls,
@@ -494,7 +485,7 @@
                 panelHeight: 200,
                 idField: 'account_number',
                 textField: 'name',
-                mode: 'remote',
+                mode: 'remote', 
                 fitColumns: true,
                 prompt: 'Choose Account No',
                 columns: [
@@ -502,13 +493,13 @@
                         field: 'account_number',
                         title: 'Code',
                         width: 100
-                    }, {
+                    },{
                         field: 'account_name',
                         title: 'Name',
                         width: 250
                     }]
                 ],
-                onLoadSuccess: function() {
+                onLoadSuccess: function(){
                     $(ed.target).combogrid('setValue', row.account_number);
                 },
                 onSelect: function(value, rows) {
@@ -555,16 +546,16 @@
     function deleterow(targetnya, id) {
         var row = $('#dg2').datagrid('getSelected');
 
-        if (row.source == "MN") {
+        if(row.source == "MN"){
             $.messager.confirm('Confirm', 'Are you sure you want to delete this data?', function(r) {
                 if (r) {
                     $('#dg2').datagrid('deleteRow', getRowIndex(targetnya));
                 }
             });
-        } else {
+        }else{
             toastr.error("Only Source = 'MN' for delete");
         }
-
+        
     }
 
     //EDIT DATA
@@ -586,8 +577,8 @@
                             url: "<?= base_url('closing/locks/checkLock') ?>",
                             data: "period=" + row.journal_date + "&menus_id=<?= $menus_id ?>",
                             dataType: "json",
-                            success: function(lock) {
-                                if (lock.total > 0) {
+                            success: function (lock) {
+                                if(lock.total > 0){
                                     toastr.error("This period is not active by Accounting");
                                     return false;
                                 }
@@ -603,7 +594,7 @@
                                     },
                                     error: function(jqXHR, textStatus, errorThrown) {
                                         toastr.error("This data is already used in other modules, You must delete it First", "Error");
-
+                                        
                                     },
                                     complete: function(data) {
                                         $('#dg').datagrid('reload');
@@ -648,7 +639,7 @@
         }
     }
 
-    function previewData() {
+    function previewData(){
         var journal_date = $("#journal_date").datebox('getValue');
         var company_id = $("#company_id").combogrid('getValue');
         var document_no = $("#document_no").combogrid('getText');
@@ -680,7 +671,7 @@
             url: '<?= base_url('finance/journal_posting_clearing/datatables') ?>' + url,
             pagination: true,
             rownumbers: true,
-            fit: true,
+            fit:true,
         });
 
         $("#printout").contents().find('html').html("<center><br><br><br><b style='font-size:20px;'>Please Wait...</b></center>");
@@ -745,10 +736,10 @@
                 handler: function() {
                     var btn = $(this);
                     btn.linkbutton('disable');
-                    setTimeout(function() {
-                        btn.linkbutton('enable');
+                    setTimeout(function() { 
+                        btn.linkbutton('enable'); 
                     }, 3000);
-
+                    
                     var journal_date = $("#journal_date").datebox('getValue');
                     var modul = $("#modul").textbox('getValue');
                     var journal_type = $("#journal_type").combobox('getValue');
@@ -774,12 +765,12 @@
                         total_local_credit += data.local_credit;
                     }
 
-                    if (parseFloat(total_local_debit).toFixed(2) != parseFloat(total_local_credit).toFixed(2)) {
+                    if(parseFloat(total_local_debit).toFixed(2) != parseFloat(total_local_credit).toFixed(2)){
                         toastr.error("Journal Not Balance " + parseFloat(total_local_debit).toFixed(2) + " != " + parseFloat(total_local_credit).toFixed(2));
                         return false;
                     }
 
-                    if (totalrows2 == 0) {
+                    if(totalrows2 == 0){
                         toastr.error("Calculate to Journal still empty!");
                         return false;
                     }
@@ -789,8 +780,8 @@
                         url: "<?= base_url('closing/locks/checkLock') ?>",
                         data: "period=" + journal_date + "&menus_id=<?= $menus_id ?>",
                         dataType: "json",
-                        success: function(lock) {
-                            if (lock.total > 0) {
+                        success: function (lock) {
+                            if(lock.total > 0){
                                 toastr.error("This period is not active by Accounting");
                                 return false;
                             }
@@ -803,7 +794,7 @@
                                             url: "<?= base_url('finance/journal_posting_clearing/number/' . $menus_id) ?>/" + btoa(journal_date),
                                             dataType: "html",
                                             success: function(numberValue) {
-                                                if (numberValue == "") {
+                                                if(numberValue == ""){
                                                     toastr.info("Please Check Configuration in Serial No First");
                                                     return false;
                                                 }
@@ -836,7 +827,7 @@
                                                 }
 
                                                 combinedJournals = [];
-                                                var total_debit = 0;
+                                                var total_debit  = 0;
                                                 var total_credit = 0;
                                                 for (let x = 0; x < totalrows2; x++) {
                                                     var json2 = rows2[x];
@@ -867,8 +858,8 @@
                                                     total_credit += parseFloat(json2.local_credit);
                                                 }
 
-                                                if (Math.round(total_debit) != Math.round(total_credit)) {
-                                                    toastr.error("Debit & Credit Not Balance (Debit : " + Math.round(total_debit) + ") and (Credit : " + Math.round(total_credit) + ")");
+                                                if(Math.round(total_debit) != Math.round(total_credit)){
+                                                    toastr.error("Debit & Credit Not Balance (Debit : "+Math.round(total_debit)+") and (Credit : "+Math.round(total_credit)+")");
                                                     return false;
                                                 }
 
@@ -887,12 +878,9 @@
                                                 $.ajax({
                                                     type: "post",
                                                     url: '<?= base_url('finance/journal_posting_clearing/create') ?>',
-                                                    data: JSON.stringify({
-                                                        dataClearings: combinedClearing,
-                                                        dataJournals: combinedJournals
-                                                    }),
+                                                    data: JSON.stringify({ dataClearings: combinedClearing, dataJournals: combinedJournals}),
                                                     dataType: "json",
-                                                    success: function(result) {
+                                                    success: function (result) {
                                                         Swal.close();
 
                                                         Swal.fire({
@@ -906,7 +894,7 @@
                                                             }
                                                         });
                                                     },
-                                                    error: function(msg) {
+                                                    error: function(msg){
                                                         Swal.close();
 
                                                         Swal.fire({
@@ -989,8 +977,8 @@
         });
 
         $("#journal_type").combobox({
-            onChange: function(val) {
-                if (val == "") {
+            onChange: function(val){
+                if(val == ""){
                     return false;
                 }
 
@@ -1017,7 +1005,7 @@
                             width: 120
                         }]
                     ],
-                    onSelect: function(valSup, rowSup) {
+                    onSelect: function(valSup, rowSup){
                         $("#document_no").combogrid({
                             url: '<?= base_url('finance/journal_posting_clearing/readDocuments/') ?>' + btoa(rowSup.id),
                             panelWidth: 850,
@@ -1028,26 +1016,25 @@
                             multiple: true,
                             toolbar: "#toolbarDocumentNo",
                             prompt: "Choose Document No",
-                            loadMsg: 'Please Wait..',
                             columns: [
                                 [{
-                                    field: 'ck',
-                                    checkbox: true
-                                }, {
+                                    field:'ck',
+                                    checkbox:true
+                                },{
                                     field: 'source',
                                     title: 'Type',
                                     align: 'center',
                                     width: 50
-                                }, {
+                                },{
                                     field: 'documents',
                                     title: 'Document No',
                                     width: 150,
                                     hidden: true
-                                }, {
+                                },{
                                     field: 'document_no',
                                     title: 'Document No',
                                     width: 150
-                                }, {
+                                },{
                                     field: 'invoice_no',
                                     title: 'Invoice No',
                                     width: 200
@@ -1143,7 +1130,7 @@
         }
     }
 
-    function numberformatDefaultIdr(value, row) {
+    function numberformatDefaultIdr(value, row){
         if (value != null) {
             const formatter = new Intl.NumberFormat('ja-JP', {
                 minimumFractionDigits: 2

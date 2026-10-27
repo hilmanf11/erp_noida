@@ -32,7 +32,7 @@
             <th rowspan="2" data-options="field:'delabel',width:80,align:'center',formatter:BtnDeleteLabel">Sync</th>
             <th rowspan="2" data-options="field:'nglabel',width:100,align:'center',formatter:BtnNg">NG</th>
             <th rowspan="2" data-options="field:'calabel',width:100,align:'center',formatter:BtnCancel">Cancel</th>
-            <th rowspan="2" data-options="field:'wms',width:120,align:'center',formatter:BtnWms">WMS</th>
+            <!-- <th rowspan="2" data-options="field:'wms',width:120,align:'center',formatter:BtnWms">WMS</th> -->
             <th rowspan="2" data-options="field:'attachment',width:100,halign:'center', formatter:btnAttachment">Attachment</th>
             <th colspan="2" data-options="field:'',width:100,halign:'center'"> Created</th>
             <th colspan="2" data-options="field:'',width:100,halign:'center'"> Updated</th>
@@ -1498,7 +1498,26 @@
                         } else {
                             toastr.success("Sync Label Success");
                         }
-                    }
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        Swal.close();
+                        let errorMessage = "Some thing wrong in server (Error " + jqXHR.status + ")";
+
+                        try {
+                            if (jqXHR.responseJSON && jqXHR.responseJSON.message) {
+                                errorMessage = jqXHR.responseJSON.message;
+                            } else if (jqXHR.responseText) {
+                                let res = JSON.parse(jqXHR.responseText);
+                                if (res.message) {
+                                    errorMessage = res.message;
+                                }
+                            }
+                        } catch (e) {
+                            errorMessage = jqXHR.statusText;
+                        }
+
+                        toastr.error(errorMessage);
+                    },
                 });
             }
         });

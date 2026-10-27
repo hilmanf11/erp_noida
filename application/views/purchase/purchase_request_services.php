@@ -10,16 +10,12 @@
             <th rowspan="2" data-options="field:'expected_date',width:100,halign:'center'">Expected Date</th>
             <th rowspan="2" data-options="field:'item_name',width:250,halign:'center'">Description of Service</th>
             <th rowspan="2" data-options="field:'item_family_name',width:150,halign:'center'">Product Family</th>
-            <th rowspan="2" data-options="field:'item_category_name',width:120,halign:'center'">Category</th>
-            <th rowspan="2" data-options="field:'asset_type',width:80,align:'center'">Asset Type</th>
-            <th rowspan="2" data-options="field:'asset_code',width:120,halign:'center'">Asset Code</th>
-            <th rowspan="2" data-options="field:'asset_date',width:120,halign:'center'">Asset Date</th>
             <th rowspan="2" data-options="field:'qty',width:80,halign:'center',align:'right',formatter:numberformat">Qty</th>
             <th rowspan="2" data-options="field:'currency',width:80,align:'center'">Currency</th>
             <th rowspan="2" data-options="field:'price',width:100,halign:'center',align:'right',formatter:numberformat">Est. Price</th>
             <th rowspan="2" data-options="field:'total',width:100,halign:'center',align:'right',formatter:numberformat">Total</th>
             <th rowspan="2" data-options="field:'remarks',width:200,halign:'center'">Remarks</th>
-            <th rowspan="2" data-options="field:'po_no',width:150,align:'center'">Po No</th>
+            <th rowspan="2" data-options="field:'po_no',width:120,align:'center'">Po No</th>
             <th colspan="4" data-options="field:'',width:100,halign:'center'">Approved</th>
             <th colspan="2" data-options="field:'',width:100,halign:'center'"> Created</th>
             <th colspan="2" data-options="field:'',width:100,halign:'center'"> Updated</th>
@@ -40,9 +36,9 @@
 <div id="toolbar" style="height: 200px; padding:10px;">
     <!-- <div style="width: 100%; display: grid; grid-template-columns: auto auto auto; grid-gap: 5px; display: flex;"> -->
     <div style="width: 100%;">
-        <fieldset style="width: 100%; border:2px solid #d0d0d0; margin-bottom: 5px; margin-top: 5px; border-radius:4px;">
+        <fieldset style="width: 70%; border:2px solid #d0d0d0; margin-bottom: 5px; margin-top: 5px; border-radius:4px;">
             <legend><b>Form Filter Data</b></legend>
-            <div style="float: left; width: 30%;">
+            <div style="float: left; width: 50%;">
                 <div class="fitem">
                     <span style="width:35%; display:inline-block;">Period</span>
                     <input style="width:28%;" id="filter_from" value="<?= date("Y-m-01") ?>" class="easyui-datebox" data-options="formatter:myformatter,parser:myparser, editable:false"> To
@@ -57,28 +53,10 @@
                     <a href="javascript:;" class="easyui-linkbutton" onclick="filter()"><i class="fa fa-search"></i> Filter Data</a>
                 </div>
             </div>
-            <div style="float: left; width: 30%;">
+            <div style="float: left; width: 50%;">
                 <div class="fitem">
                     <span style="width:35%; display:inline-block;">Service Name</span>
                     <input style="width:60%;" id="filter_item_rm" class="easyui-combobox">
-                </div>
-            </div>
-            <div style="float: left; width: 30%;">
-                <div class="fitem">
-                    <span style="width:35%; display:inline-block;">Status PO</span>
-                    <select style="width:60%;" name="filter_status_po" id="filter_status_po" class="easyui-combobox" panelHeight="auto" required>
-                        <option value="">ALL</option>
-                        <option value="1">CONVERTED</option>
-                        <option value="0">UNCONVERTED</option>
-                    </select>
-                </div>
-                <div class="fitem">
-                    <span style="width:35%; display:inline-block;">Status Approval</span>
-                    <select style="width:60%;" name="filter_status_approval" id="filter_status_approval" class="easyui-combobox" panelHeight="auto" required>
-                        <option value="">ALL</option>
-                        <option value="APPROVED">APPROVED</option>
-                        <option value="CHECKING">CHECKING</option>
-                    </select>
                 </div>
             </div>
         </fieldset>
@@ -426,11 +404,8 @@
         var filter_to = $("#filter_to").datebox('getValue');
         var filter_request_no = $("#filter_request_no").combobox('getValue');
         var filter_item_rm = $("#filter_item_rm").combobox('getValue');
-        var filter_status_po = $("#filter_status_po").combobox('getValue');
-        var filter_status_approval = $("#filter_status_approval").combobox('getValue');
 
-        url = "?filter_from=" + filter_from + "&filter_to=" + filter_to + "&filter_request_no=" + filter_request_no + "&filter_item_rm=" + filter_item_rm + "&filter_status_po=" + filter_status_po + "&filter_status_approval=" + filter_status_approval;
-        
+        url = "?filter_from=" + filter_from + "&filter_to=" + filter_to + "&filter_request_no=" + filter_request_no + "&filter_item_rm=" + filter_item_rm;
         $('#dg').treegrid({
             url: '<?= base_url('purchase/purchase_request_services/datatables') ?>' + url,
             pagination: true,
@@ -461,11 +436,8 @@
         var filter_to = $("#filter_to").datebox('getValue');
         var filter_request_no = $("#filter_request_no").combobox('getValue');
         var filter_item_rm = $("#filter_item_rm").combobox('getValue');
-        var filter_status_po = $("#filter_status_po").combobox('getValue');
-        var filter_status_approval = $("#filter_status_approval").combobox('getValue');
 
-        url = "?filter_from=" + filter_from + "&filter_to=" + filter_to + "&filter_request_no=" + filter_request_no + "&filter_item_rm=" + filter_item_rm + "&filter_status_po=" + filter_status_po + "&filter_status_approval=" + filter_status_approval;
-        
+        url = "?filter_from=" + filter_from + "&filter_to=" + filter_to + "&filter_request_no=" + filter_request_no + "&filter_item_rm=" + filter_item_rm;
         window.location.assign('<?= base_url('purchase/purchase_request_services/print/excel') ?>' + url);
     }
 

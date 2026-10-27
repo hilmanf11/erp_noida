@@ -156,6 +156,14 @@
                 <input style="width:28%;" name="delivery_date" class="easyui-datebox" data-options="formatter:myformatter,parser:myparser, editable:false">
             </div>
             <div class="fitem">
+                <span style="width:35%; display:inline-block;">Before Qty</span>
+                <input style="width:40%;" name="bf_qty" id="bf_qty" class="easyui-numberbox" readonly>
+            </div>
+            <div class="fitem">
+                <span style="width:35%; display:inline-block;">POR Qty</span>
+                <input style="width:40%;" name="por_qty" id="por_qty" class="easyui-numberbox" readonly>
+            </div>
+            <div class="fitem">
                 <span style="width:35%; display:inline-block;">Qty</span>
                 <input style="width:40%;" name="qty" id="qty" class="easyui-numberbox">
             </div>
@@ -1096,6 +1104,14 @@
                 text: 'Send to Approval',
                 iconCls: 'icon-ok',
                 handler: function() {
+                    var por_qty = $("#por_qty").numberbox('getValue');
+                    var qty = $("#qty").numberbox('getValue');
+
+                    if (parseInt(por_qty) >= parseInt(qty)) {
+                        toastr.error("POR qty > Qty PO");
+                        return false;
+                    }
+
                     $('#frm_update').form('submit', {
                         url: '<?= base_url('purchase/purchase_order_closing_other/update') ?>',
                         onSubmit: function() {

@@ -35,40 +35,35 @@ class Report_ap extends CI_Controller
         echo json_encode($send);
     }
 
-    public function readPostingNo()
-    {
+    public function readPostingNo(){
         $post = isset($_POST['q']) ? $_POST['q'] : "";
         $send = $this->crud->query("SELECT DISTINCT number, journal_date FROM journal_postings WHERE modul NOT IN ('BANK STATEMENT','CLEARING') and modul IN ('AP PAYMENT','PURCHASE INVOICING') and number like '%$post%' ORDER BY number DESC LIMIT 500");
         echo json_encode($send);
     }
 
-    public function readDocumentNo()
-    {
+    public function readDocumentNo(){
         $post = isset($_POST['q']) ? $_POST['q'] : "";
         $send = $this->crud->query("SELECT DISTINCT document_no FROM journal_postings WHERE modul NOT IN ('BANK STATEMENT','CLEARING') and modul IN ('AP PAYMENT','PURCHASE INVOICING') and document_no like '%$post%' ORDER BY document_no DESC LIMIT 500");
         echo json_encode($send);
     }
 
-    public function readInvoiceNo()
-    {
+    public function readInvoiceNo(){
         $post = isset($_POST['q']) ? $_POST['q'] : "";
         $send = $this->crud->query("SELECT DISTINCT invoice_no FROM journal_postings WHERE modul NOT IN ('BANK STATEMENT','CLEARING') and modul IN ('AP PAYMENT','PURCHASE INVOICING') and invoice_no like '%$post%' ORDER BY invoice_no DESC LIMIT 500");
         echo json_encode($send);
     }
 
-    public function readClno()
-    {
+    public function readClno(){
         $post = isset($_POST['q']) ? $_POST['q'] : "";
         $send = $this->crud->query("SELECT DISTINCT number FROM journal_clearings WHERE number like '%$post%' ORDER BY number DESC LIMIT 500");
         echo json_encode($send);
     }
 
-    public function begin_balance($supplier_id, $filter_from, $filter_to, $filter_currency, $filter_status = "", $balance_local)
-    {
-        if ($filter_currency == "INR" || $filter_currency == "") {
+    public function begin_balance($supplier_id, $filter_from, $filter_to, $filter_currency, $filter_status = "", $balance_local){
+        if($filter_currency == "INR" || $filter_currency == ""){
             $filter_currency = "";
             $currency = "INR";
-        } else {
+        }else{
             $filter_currency = $filter_currency;
             $currency = $filter_currency;
         }
@@ -85,10 +80,10 @@ class Report_ap extends CI_Controller
         $local_debit = 0;
         $local_credit = 0;
         foreach ($purchase_invoices as $purchase_invoice) {
-            if ($currency != "INR") {
+            if($currency != "INR"){
                 $ex_local_debit = $this->exchangeRates($purchase_invoice['trans_date'], $purchase_invoice['currency'], $currency, $purchase_invoice['local_debit']);
                 $ex_local_credit = $this->exchangeRates($purchase_invoice['trans_date'], $purchase_invoice['currency'], $currency, $purchase_invoice['local_credit']);
-            } else {
+            }else{
                 $ex_local_debit = $purchase_invoice['local_debit'];
                 $ex_local_credit = $purchase_invoice['local_credit'];
             }
@@ -102,8 +97,7 @@ class Report_ap extends CI_Controller
         return $begin_balance;
     }
 
-    public function formatNo($amount)
-    {
+    public function formatNo($amount){
         if ($amount >= 0) {
             return number_format(@$amount, 2);
         } else {
@@ -111,20 +105,19 @@ class Report_ap extends CI_Controller
         }
     }
 
-    public function exchangeRates($trans_date, $currency_from, $currency_to, $amount = 0)
-    {
+    public function exchangeRates($trans_date, $currency_from, $currency_to, $amount = 0){
         $query_exchange = $this->db->query("SELECT * FROM exchange_rates WHERE start_date <= '$trans_date' and end_date >= '$trans_date' and currency_from = '$currency_to' and currency_to = '$currency_from'");
         $row_exchange = $query_exchange->row();
 
-        if ($currency_to == "INR") {
+        if($currency_to == "INR"){
             return $amount;
-        } else {
-            if ($row_exchange) {
+        }else{
+            if($row_exchange){
                 $total = ($amount / $row_exchange->middle);
-            } else {
+            }else{
                 $total = $amount;
             }
-
+    
             return $total;
         }
     }
@@ -139,7 +132,7 @@ class Report_ap extends CI_Controller
 
         $filter_from = base64_decode($this->input->get("filter_from"));
         $filter_to = base64_decode($this->input->get("filter_to"));
-        if ($filter_from == "" && $filter_to == "") {
+        if($filter_from == "" && $filter_to == ""){
             $filter_from = "2024-11-01";
             $filter_to = date("Y-m-d");
         }
@@ -154,10 +147,10 @@ class Report_ap extends CI_Controller
         $filter_status = $this->input->get("filter_status");
         $period = date("Ym", strtotime($filter_to));
 
-        if ($filter_currency == "INR") {
+        if($filter_currency == "INR"){
             $filter_currency = "";
             $currency = "INR";
-        } else {
+        }else{
             $filter_currency = $filter_currency;
             $currency = $filter_currency;
         }
@@ -175,63 +168,6 @@ class Report_ap extends CI_Controller
         $this->db->group_by('a.id');
         $this->db->order_by('a.name', 'asc');
         $suppliers = $this->db->get()->result_array();
-
-        //Purchase invoicing
-        $query_1 = $this->db->query("SELECT 
-            (CASE 
-                WHEN a.modul = 'PURCHASE INVOICING' THEN 'PI'
-                WHEN a.modul = 'AP PAYMENT' THEN 'AP'
-                WHEN a.modul = 'ADJUSTMENT' THEN 'AD'
-                WHEN a.modul = 'CLEARING' THEN 'CL'
-                ELSE 'NA' END
-            ) AS source,
-            a.company_id,
-            a.document_no,
-            a.description,
-            a.invoice_no,
-            a.trans_date,
-            a.journal_date AS posting_date,
-            a.number AS voucher_no,
-            a.account_number,
-            a.currency,
-            a.original_debit,
-            a.original_credit,
-            a.local_debit,
-            a.local_credit,
-            a.status
-            FROM (SELECT number, modul, document_no, invoice_no, journal_date, account_number, currency, company_id, description, status, trans_date,
-                    SUM(original_debit) AS original_debit,
-                    SUM(original_credit) AS original_credit,
-                    SUM(local_debit) AS local_debit,
-                    SUM(local_credit) AS local_credit 
-                FROM journal_postings
-                WHERE account_number IN ('16000001','16000002','16000003','16000004','16000005','16000006','16000007','16000008')
-                AND journal_date BETWEEN '$filter_from' and '$filter_to'
-                AND `number` like '%$filter_posting_no%' 
-                AND document_no like '%$filter_document_no%' 
-                AND invoice_no like '%$filter_invoice_no%'
-                GROUP BY number, document_no, account_number, modul, company_id
-            ) a
-            GROUP BY a.number, a.document_no, a.account_number, a.company_id
-            ORDER BY a.journal_date ASC");
-        $data_purchase_invoices = $query_1->result_array();
-
-        //Journal Clearing
-        $query_2 = $this->db->query("SELECT `number`, journal_date, document_no, company_id, `description` FROM journal_clearings WHERE number like '%$filter_cl_no%' GROUP BY document_no, company_id, `description`");
-        $journal_clearings = $query_2->result_array();
-
-        $arrJournalClearings = [];
-        foreach ($journal_clearings as $journal_clearing) {
-            $arrJournalClearings[$journal_clearing['document_no'] . $journal_clearing['company_id'] . $journal_clearing['description']] = $journal_clearing;
-        }
-
-        $arrPurchaseInvoices = [];
-        foreach ($data_purchase_invoices as $data_purchase_invoice) {
-            $cl_no = @$arrJournalClearings[$data_purchase_invoice['document_no'] . $data_purchase_invoice['company_id'] . $data_purchase_invoice['description']]['number'];
-            $cl_date = @$arrJournalClearings[$data_purchase_invoice['document_no'] . $data_purchase_invoice['company_id'] . $data_purchase_invoice['description']]['journal_date'];
-
-            $arrPurchaseInvoices[$data_purchase_invoice['company_id']][] = array_merge($data_purchase_invoice, ["cl_no" => $cl_no, "cl_date" => $cl_date]);
-        }
 
         $html = '<html><head><title>Print Data</title></head><style>body {font-family: Arial, Helvetica, sans-serif;}#customers {border-collapse: collapse;width: 100%;font-size: 12px;}#customers td, #customers th {border: 1px solid #ddd;padding: 2px;}#customers tr:hover {background-color: #ddd;}#customers th {padding-top: 2px;padding-bottom: 2px;text-align: center;color: black;}</style><body>
             <center>
@@ -292,21 +228,61 @@ class Report_ap extends CI_Controller
             $supplier_id = $supplier['id'];
             $supplier_name = $supplier['name'];
 
-            $purchase_invoices = empty($arrPurchaseInvoices[$supplier_id]) ? [] : $arrPurchaseInvoices[$supplier_id];
+            //Purchase invoicing
+            $query_1 = $this->db->query("SELECT 
+                (CASE 
+                    WHEN a.modul = 'PURCHASE INVOICING' THEN 'PI'
+                    WHEN a.modul = 'AP PAYMENT' THEN 'AP'
+                    WHEN a.modul = 'ADJUSTMENT' THEN 'AD'
+                    WHEN a.modul = 'CLEARING' THEN 'CL'
+                    ELSE 'NA' END
+                ) AS source,
+                a.document_no,
+                a.invoice_no,
+                a.trans_date,
+                a.journal_date AS posting_date,
+                a.number AS voucher_no,
+                a.account_number,
+                b.number AS cl_no,
+                b.journal_date AS cl_date,
+                a.currency,
+                a.original_debit,
+                a.original_credit,
+                a.local_debit,
+                a.local_credit,
+                a.status
+                FROM (SELECT number, modul, document_no, invoice_no, journal_date, account_number, currency, company_id, description, status, trans_date,
+                        SUM(original_debit) AS original_debit,
+                        SUM(original_credit) AS original_credit,
+                        SUM(local_debit) AS local_debit,
+                        SUM(local_credit) AS local_credit 
+                    FROM journal_postings
+                    WHERE account_number IN ('16000001','16000002','16000003','16000004','16000005','16000006','16000007','16000008') 
+                    AND company_id = '$supplier_id'
+                    AND journal_date BETWEEN '$filter_from' and '$filter_to'
+                    AND `number` like '%$filter_posting_no%' 
+                    AND document_no like '%$filter_document_no%' 
+                    AND invoice_no like '%$filter_invoice_no%'
+                    GROUP BY number, document_no, account_number, modul
+                    ) a
+                LEFT JOIN (SELECT * FROM journal_clearings WHERE number like '%$filter_cl_no%' GROUP BY document_no, company_id, description) b ON a.document_no = b.document_no AND a.company_id = b.company_id AND a.description = b.description
+                GROUP BY a.number, a.document_no, a.account_number
+                ORDER BY a.journal_date ASC");
+            $purchase_invoices = $query_1->result_array();
 
             $local_debit = 0;
             $local_credit = 0;
             $total_balance_local = 0;
 
-            if ($supplier['currency'] == $filter_currency || $filter_currency == "") {
+            if($supplier['currency'] == $filter_currency || $filter_currency == ""){
                 $begin_balance_local = $this->begin_balance($supplier_id, $filter_from, $filter_to, $filter_currency, $filter_status, @$supplier['balance_local']);
-            } else {
+            }else{
                 $begin_balance_local = $this->begin_balance($supplier_id, $filter_from, $filter_to, $filter_currency, $filter_status, 0);
             }
 
             // if (count($purchase_invoices) > 0) {
-            $detail .= '  <tr style="background: #DEE2FF; font-weight:bold;">
-                                    <td colspan="18">BEGINING BALANCE - ' . $supplier['name'] . '</td>
+                $detail .= '  <tr style="background: #DEE2FF; font-weight:bold;">
+                                    <td colspan="18">BEGINING BALANCE - '.$supplier['name'].'</td>
                                     <td colspan="3"></td>
                                     <td style="text-align:right;">' . number_format(@$begin_balance_local, 2) . '</td>
                                 </tr>';
@@ -326,41 +302,41 @@ class Report_ap extends CI_Controller
                 $total_payment = 0;
                 $cl_no_array = array();
                 $cl_date_array = array();
-                if ($purchase_invoice['source'] == "PI") {
+                if($purchase_invoice['source'] == "PI"){
                     $payments = $this->db->query("SELECT payment_no, payment_date, payment, account_type FROM ap_payments WHERE purchase_invoice = '$document_no'")->result_array();
                     $purchase = $this->db->query("SELECT * FROM purchase_invoices WHERE number = '$document_no'")->row_array();
                     $por = $this->db->query("SELECT DISTINCT receipt_date FROM purchase_order_receipts WHERE bc_document = '$invoice_no'")->row_array();
                     $poro = $this->db->query("SELECT DISTINCT receipt_date FROM purchase_order_receipt_others WHERE bc_document = '$invoice_no'")->row_array();
-
+                    
                     $invoice_date = $purchase['invoice_date'];
                     $receipt_date = empty($por['receipt_date']) ? @$poro['receipt_date'] : $por['receipt_date'];
 
                     $payment_due = date('Y-m-d', strtotime('+' . $purchase['payment_term'] . ' days', strtotime($receipt_date)));
 
-                    if ($cl_no != "") {
+                    if($cl_no != ""){
                         $cl_no_array[] = $cl_no;
                         $cl_date_array[] = $cl_date;
                     }
-
+                    
                     foreach ($payments as $payment) {
                         $cl_no_array[] = $payment['payment_no'];
                         $cl_date_array[] = $payment['payment_date'];
 
-                        if ($cl_no == "") {
-                            if ($payment['account_type'] == "DEBIT") {
+                        if($cl_no == ""){
+                            if($payment['account_type'] == "DEBIT"){
                                 $total_payment += $payment['payment'];
-                            } else {
+                            }else{
                                 $total_payment -= $payment['payment'];
                             }
                         }
                     }
-
+                    
                     $cl_no = implode(", ", $cl_no_array);
                     $cl_date = implode(", ", $cl_date_array);
-                } elseif ($purchase_invoice['source'] == "AP") {
+                }elseif($purchase_invoice['source'] == "AP"){
                     $qpayment = $this->db->query("SELECT * FROM ap_payments WHERE payment_no = '$document_no' and purchase_invoice IN (SELECT DISTINCT number FROM purchase_invoices)")->result_array();
 
-                    if ($cl_no != "") {
+                    if($cl_no != ""){
                         $cl_no_array[] = $cl_no;
                         $cl_date_array[] = $cl_date;
                     }
@@ -369,9 +345,9 @@ class Report_ap extends CI_Controller
                         $cl_no_array[] = $payment['payment_no'];
                         $cl_date_array[] = $payment['payment_date'];
 
-                        if ($payment['account_type'] == "DEBIT") {
+                        if($payment['account_type'] == "DEBIT"){
                             $total_payment -= $payment['payment'];
-                        } else {
+                        }else{
                             $total_payment += $payment['payment'];
                         }
                     }
@@ -384,19 +360,19 @@ class Report_ap extends CI_Controller
                 $date2 = new DateTime($filter_to);
                 $aging = $date1->diff($date2);
 
-                if ($currency != "INR") {
+                if($currency != "INR"){
                     $ex_local_debit = $this->exchangeRates($purchase_invoice['trans_date'], $purchase_invoice['currency'], $currency, $purchase_invoice['original_debit']);
                     $ex_local_credit = $this->exchangeRates($purchase_invoice['trans_date'], $purchase_invoice['currency'], $currency, $purchase_invoice['original_credit']);
-                } else {
+                }else{
                     $ex_local_debit = $purchase_invoice['local_debit'];
                     $ex_local_credit = $purchase_invoice['local_credit'];
                 }
 
-                if ($cl_no == "") {
+                if($cl_no == ""){
                     $balance_local = ($purchase_invoice['original_credit'] - $purchase_invoice['original_debit']);
-                } elseif ($total_payment != 0) {
+                }elseif($total_payment != 0){
                     $balance_local = ($purchase_invoice['original_credit'] - $purchase_invoice['original_debit'] - $total_payment);
-                } else {
+                }else{
                     $balance_local = 0;
                 }
 
@@ -407,10 +383,10 @@ class Report_ap extends CI_Controller
                     $status_purchase = "CLOSE";
                     $style_status_purchase = "background-color:#FFC8C8;";
                 }
-
+                
                 $accumulated += ($ex_local_credit - $ex_local_debit);
 
-                if ($aging->days <= 0) {
+                if($aging->days <= 0){
                     $aging_due = "< 0";
                 } elseif ($aging->days >= 1 && $aging->days <= 30) {
                     $aging_due = "1-30";
@@ -427,7 +403,7 @@ class Report_ap extends CI_Controller
                 } elseif ($aging->days >= 121 && $aging->days <= 180) {
                     $aging_due = "121-180";
                 } elseif ($aging->days >= 181 && $aging->days <= 365) {
-                    $aging_due = "181-365";
+                    $aging_due = "181-365";  
                 } else {
                     $aging_due = "> 365";
                 }
@@ -457,15 +433,15 @@ class Report_ap extends CI_Controller
                                 <td style="text-align:right;">' . $this->formatNo($accumulated) . '</td>
                             </tr>';
 
-                if ($filter_status == "0" && $status_purchase == "OPEN") {
+                if($filter_status == "0" && $status_purchase == "OPEN"){
                     $detail .= $content;
                 }
 
-                if ($filter_status == "1" && $status_purchase == "CLOSE") {
+                if($filter_status == "1" && $status_purchase == "CLOSE"){
                     $detail .= $content;
                 }
 
-                if ($filter_status == "") {
+                if($filter_status == ""){
                     $detail .= $content;
                 }
 
@@ -557,8 +533,8 @@ class Report_ap extends CI_Controller
                             <td></td>
                             <td style="text-align:right;">' . number_format($grand_local_debit, 2) . '</td>
                             <td style="text-align:right;">' . number_format($grand_local_credit, 2) . '</td>
-                            <td style="text-align:right;">' . $this->formatNo($grand_balance_local) . '</td>
-                            <td style="text-align:right;">' . $this->formatNo($grand_local_balance) . '</td>
+                            <td style="text-align:right;">' .$this->formatNo($grand_balance_local) . '</td>
+                            <td style="text-align:right;">' .$this->formatNo($grand_local_balance) . '</td>
                         </tr>';
 
         $htmlend = '</table></body></html>';

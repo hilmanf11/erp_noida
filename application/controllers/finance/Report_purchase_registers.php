@@ -107,7 +107,7 @@ class Report_purchase_registers extends CI_Controller
             a.invoice_no,
             a.trans_date AS invoice_date,
             a.journal_date as trans_date,
-            REPLACE(REPLACE(a.description, \"'\", \"\"), '\"', '') AS item_rm_id,
+            a.description AS item_rm_id,
             '-' AS asset_code,
             '-' AS item_rm_number,
             '-' AS product_family,
@@ -213,7 +213,7 @@ class Report_purchase_registers extends CI_Controller
         $no = 1;
         foreach ($records as $data) {
             $receipt_no = $data['por_no'];
-            $item_rm_id = $data['item_rm_id'];
+            $item_rm_id = str_replace("'", '', $data['item_rm_id']);
 
             $por =  $this->db->query("SELECT a.receipt_date, b.po_no, b.currency, b.qty, b.total FROM purchase_order_receipts a
                     JOIN purchase_orders b ON a.po_no = b.po_no AND a.item_rm_id = b.item_rm_id
